@@ -1,13 +1,50 @@
 // ── User ─────────────────────────────────────────────────────────────────────
+export interface StudentProfile {
+  id: string
+  user_id: string
+  date_of_birth: string
+  gender: 'MALE' | 'FEMALE'
+  university_name: string
+  college: string
+  degree: 'Diploma' | 'Bachelor' | 'Master' | 'Doctorate'
+  specialization: string
+  budget_min: number
+  budget_max: number
+  preferred_room_type: 'SINGLE' | 'SHARED' | 'STUDIO' | 'NO_PREFERENCE'
+  created_at: string
+}
+
 export interface User {
   id: string
-  supabase_id: string
+  supabase_user_id: string    
   email: string
   full_name: string | null
-  avatar_url: string | null
-  role: 'student' | 'landlord' | 'admin'
+  phone_number: string | null    
+  role: 'STUDENT' | 'LANDLORD' | 'ADMIN' | null  
   is_active: boolean
+  is_verified: boolean   
   created_at: string
+  updated_at: string
+  student_profile?: StudentProfile | null  // ← only present when role == STUDENT
+}
+
+// ── Auth payloads ─────────────────────────────────────────────────────────────
+export interface CompleteProfilePayload {
+  full_name: string
+  phone_number: string
+  role: 'STUDENT' | 'LANDLORD'
+}
+
+export interface CompleteStudentProfilePayload {
+  date_of_birth: string          // YYYY-MM-DD
+  gender: 'MALE' | 'FEMALE'
+  university_name: 'An-Najah National University'
+  college: string
+  degree: 'Diploma' | 'Bachelor' | 'Master' | 'Doctorate'
+  specialization: string
+  budget_min: number
+  budget_max: number
+  preferred_room_type: 'SINGLE' | 'SHARED' | 'STUDIO' | 'NO_PREFERENCE'
 }
 
 // ── Property ──────────────────────────────────────────────────────────────────
