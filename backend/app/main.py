@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
     # Startup — verify Supabase connection
     try:
         db = get_db()
-        db.table("users").select("id").limit(1).execute()
+        db.table("user_profiles").select("id").limit(1).execute()
         logger.info("✅ Supabase connection verified")
     except Exception as e:
         logger.warning(
@@ -45,9 +45,6 @@ app.add_middleware(
 )
 
 # ── Routers ───────────────────────────────────────────────────────────────────
-app.include_router(auth.router,       prefix="/api/v1")
-app.include_router(properties.router, prefix="/api/v1")
-app.include_router(bookings.router,   prefix="/api/v1")
 
 
 @app.get("/health", tags=["health"])
@@ -58,3 +55,8 @@ async def health_check():
         "env": settings.app_env,
         "supabase": bool(settings.supabase_url),
     }
+
+
+app.include_router(auth.router,       prefix="/api/v1")
+app.include_router(properties.router, prefix="/api/v1")
+app.include_router(bookings.router,   prefix="/api/v1")
