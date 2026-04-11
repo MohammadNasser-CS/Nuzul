@@ -1,16 +1,13 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { authService } from '../services/auth'
 import { useAuthStore } from '../store/authStore'
 import { getPostLoginRoute } from '../hooks/useAuth'
 
-/**
- * Supabase redirects here after Google OAuth.
- * After confirming the session, we call /auth/me and follow the
- * profile-completion decision tree to send the user to the right page.
- */
 export default function AuthCallbackPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { setUser } = useAuthStore()
 
@@ -32,7 +29,7 @@ export default function AuthCallbackPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <p className="text-gray-400 text-sm">Signing you in…</p>
+      <p className="text-gray-400 text-sm">{t('common.signingIn')}</p>
     </div>
   )
 }

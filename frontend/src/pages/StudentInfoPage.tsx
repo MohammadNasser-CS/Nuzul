@@ -1,19 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { authService } from "../services/auth";
 import { useAuthStore } from "../store/authStore";
 import type { CompleteStudentProfilePayload } from "../types";
 
 const DEGREES = ["Diploma", "Bachelor", "Master", "Doctorate"] as const;
 const GENDERS = ["MALE", "FEMALE"] as const;
-const ROOM_TYPES = [
-  { value: "SINGLE", label: "Single", desc: "Private room" },
-  { value: "SHARED", label: "Shared", desc: "Shared room" },
-  { value: "STUDIO", label: "Studio", desc: "Studio apartment" },
-  { value: "NO_PREFERENCE", label: "No preference", desc: "Any type" },
-] as const;
+const ROOM_TYPE_VALUES = ["SINGLE", "SHARED", "STUDIO", "NO_PREFERENCE"] as const;
 
 export default function StudentInfoPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate();
   const { setUser } = useAuthStore();
 
@@ -31,13 +28,12 @@ export default function StudentInfoPage() {
     e.preventDefault();
     setError(null);
 
-    // Basic budget validation
     if (
       form.budget_min !== undefined &&
       form.budget_max !== undefined &&
       form.budget_min > form.budget_max
     ) {
-      return setError("Minimum budget cannot be greater than maximum budget.");
+      return setError(t('onboarding.student.budgetError'));
     }
 
     setLoading(true);
@@ -48,9 +44,7 @@ export default function StudentInfoPage() {
       setUser(res.data);
       navigate("/dashboard", { replace: true });
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ??
-        "Something went wrong. Please try again.";
+      const msg = err?.response?.data?.detail ?? t('onboarding.student.genericError');
       setError(msg);
     } finally {
       setLoading(false);
@@ -60,16 +54,15 @@ export default function StudentInfoPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-10">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-        {/* Header */}
         <div className="mb-8">
           <p className="text-xs font-semibold text-brand-600 uppercase tracking-widest mb-2">
-            Step 2 of 2
+            {t('onboarding.step2of2')}
           </p>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">
-            Student information
+            {t('onboarding.student.title')}
           </h1>
           <p className="text-gray-500 text-sm">
-            Help landlords understand who you are and what you're looking for.
+            {t('onboarding.student.subtitle')}
           </p>
         </div>
 
@@ -84,7 +77,7 @@ export default function StudentInfoPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Date of birth <span className="text-red-400">*</span>
+                {t('onboarding.student.dateOfBirth')} <span className="text-red-400">*</span>
               </label>
               <input
                 type="date"
@@ -97,7 +90,7 @@ export default function StudentInfoPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Gender <span className="text-red-400">*</span>
+                {t('onboarding.student.gender')} <span className="text-red-400">*</span>
               </label>
               <select
                 required
@@ -105,27 +98,25 @@ export default function StudentInfoPage() {
                 onChange={(e) => set("gender", e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
               >
-                <option value="" disabled>
-                  Select gender
-                </option>
+                <option value="" disabled>{t('onboarding.student.selectGender')}</option>
                 {GENDERS.map((g) => (
                   <option key={g} value={g}>
-                    {g.charAt(0) + g.slice(1).toLowerCase()}
+                    {t(`enums.gender.${g}`)}
                   </option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* University (read-only — only one option) */}
+          {/* University (read-only) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              University
+              {t('onboarding.student.university')}
             </label>
             <input
               type="text"
               readOnly
-              value="An-Najah National University"
+              value={t('enums.university.An-Najah National University')}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
             />
           </div>
@@ -134,20 +125,20 @@ export default function StudentInfoPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                College / Faculty <span className="text-red-400">*</span>
+                {t('onboarding.student.college')} <span className="text-red-400">*</span>
               </label>
               <input
                 type="text"
                 required
                 value={form.college ?? ""}
                 onChange={(e) => set("college", e.target.value)}
-                placeholder="e.g. Engineering"
+                placeholder={t('onboarding.student.collegePlaceholder')}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Degree <span className="text-red-400">*</span>
+                {t('onboarding.student.degree')} <span className="text-red-400">*</span>
               </label>
               <select
                 required
@@ -155,12 +146,10 @@ export default function StudentInfoPage() {
                 onChange={(e) => set("degree", e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
               >
-                <option value="" disabled>
-                  Select degree
-                </option>
+                <option value="" disabled>{t('onboarding.student.selectDegree')}</option>
                 {DEGREES.map((d) => (
                   <option key={d} value={d}>
-                    {d}
+                    {t(`enums.degree.${d}`)}
                   </option>
                 ))}
               </select>
@@ -170,14 +159,14 @@ export default function StudentInfoPage() {
           {/* Specialization */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Specialization <span className="text-red-400">*</span>
+              {t('onboarding.student.specialization')} <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
               required
               value={form.specialization ?? ""}
               onChange={(e) => set("specialization", e.target.value)}
-              placeholder="e.g. Software Engineering"
+              placeholder={t('onboarding.student.specializationPlaceholder')}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
@@ -185,7 +174,7 @@ export default function StudentInfoPage() {
           {/* Budget range */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Monthly budget (ILS) <span className="text-red-400">*</span>
+              {t('onboarding.student.budget')} <span className="text-red-400">*</span>
             </label>
             <div className="flex items-center gap-3">
               <input
@@ -194,17 +183,17 @@ export default function StudentInfoPage() {
                 min={0}
                 value={form.budget_min ?? ""}
                 onChange={(e) => set("budget_min", Number(e.target.value))}
-                placeholder="Min"
+                placeholder={t('onboarding.student.budgetMin')}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
-              <span className="text-gray-400 text-sm shrink-0">to</span>
+              <span className="text-gray-400 text-sm shrink-0">{t('onboarding.student.to')}</span>
               <input
                 type="number"
                 required
                 min={0}
                 value={form.budget_max ?? ""}
                 onChange={(e) => set("budget_max", Number(e.target.value))}
-                placeholder="Max"
+                placeholder={t('onboarding.student.budgetMax')}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
@@ -213,10 +202,10 @@ export default function StudentInfoPage() {
           {/* Preferred room type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Preferred room type
+              {t('onboarding.student.preferredRoomType')}
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {ROOM_TYPES.map(({ value, label, desc }) => (
+              {ROOM_TYPE_VALUES.map((value) => (
                 <button
                   key={value}
                   type="button"
@@ -227,18 +216,19 @@ export default function StudentInfoPage() {
                       : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
-                  <p className="font-semibold text-gray-800">{label}</p>
-                  <p className="text-gray-400 mt-0.5">{desc}</p>
+                  <p className="font-semibold text-gray-800">{t(`enums.preferredRoomType.${value}`)}</p>
+                  <p className="text-gray-400 mt-0.5">{t(`enums.preferredRoomTypeDesc.${value}`)}</p>
                 </button>
               ))}
             </div>
           </div>
+
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors text-sm mt-2"
           >
-            {loading ? "Saving…" : "Complete setup →"}
+            {loading ? t('onboarding.student.saving') : t('onboarding.student.completeSetup')}
           </button>
         </form>
       </div>
