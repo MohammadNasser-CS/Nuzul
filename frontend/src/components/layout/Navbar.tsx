@@ -18,7 +18,7 @@ export function Navbar() {
 
   return (
     <nav className="border-b border-gray-200 bg-white px-6 py-3 flex items-center justify-between">
-      <Link to="/admin" className="">
+      <Link to="/" className="">
         <img
           src="/Nuzul_logo_v1_transparent.svg"
           alt="Nuzul Logo"
