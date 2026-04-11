@@ -1,8 +1,43 @@
 @import "tailwindcss";
 
+@theme {
+  /* ── Brand: Deep Navy (#203a5f from logo) ────────────────────── */
+  --color-brand-50: #eef2f7;
+  --color-brand-100: #d4e0ed;
+  --color-brand-200: #a9c1db;
+  --color-brand-300: #7da2c9;
+  --color-brand-400: #4d7eb0;
+  --color-brand-500: #2d5d8e;
+  --color-brand-600: #203a5f;
+  --color-brand-700: #192e4c;
+  --color-brand-800: #112238;
+  --color-brand-900: #0a1524;
+
+  /* ── Accent: Vibrant Orange (#ff751f from logo) ──────────────── */
+  --color-accent-50: #fff4ed;
+  --color-accent-100: #ffe4cc;
+  --color-accent-200: #ffc799;
+  --color-accent-300: #ffa866;
+  --color-accent-400: #ff8c3d;
+  --color-accent-500: #ff751f;
+  --color-accent-600: #e85a00;
+  --color-accent-700: #b34500;
+  --color-accent-800: #7f3100;
+  --color-accent-900: #4d1d00;
+
+  /* ── Warm Neutral (#dbcbb0 from logo) ───────────────────────── */
+  --color-warm-100: #f5f0e8;
+  --color-warm-200: #ede4d4;
+  --color-warm-300: #dbcbb0;
+  --color-warm-400: #c9b28c;
+
+  /* ── Font ────────────────────────────────────────────────────── */
+  --font-sans: 'Cairo', system-ui, sans-serif;
+}
+
 @layer base {
-    html {
-        font-family: 'Inter', system-ui, sans-serif;
-        -webkit-font-smoothing: antialiased;
-    }
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
 }

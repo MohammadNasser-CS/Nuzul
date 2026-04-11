@@ -47,7 +47,7 @@ export default function RoleSelectionPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
         <div className="mb-8">
-          <p className="text-xs font-semibold text-brand-600 uppercase tracking-widest mb-2">
+          <p className="text-xs font-semibold text-accent-500 uppercase tracking-widest mb-2">
             {t('onboarding.step1of2')}
           </p>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">

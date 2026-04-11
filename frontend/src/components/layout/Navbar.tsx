@@ -17,7 +17,7 @@ export function Navbar() {
   }
 
   return (
-    <nav className="border-b border-gray-200 bg-white px-6 py-3 flex items-center justify-between">
+    <nav className="border-b border-brand-100 bg-white px-6 py-3 flex items-center justify-between">
       <Link to="/" className="">
         <img
           src="/Nuzul_logo_v1_transparent.svg"
@@ -52,7 +52,7 @@ export function Navbar() {
             </Link>
             <Link
               to="/register"
-              className="bg-brand-600 text-white px-4 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
+              className="bg-accent-500 text-white px-4 py-1.5 rounded-lg hover:bg-accent-600 transition-colors font-semibold"
             >
               {t('nav.getStarted')}
             </Link>
