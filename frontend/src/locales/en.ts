@@ -95,7 +95,7 @@ export default {
     myBookings: 'My Bookings',
     savedListings: 'Saved Listings',
     messages: 'Messages',
-    connectBookings: 'Connect bookingsService here',
+    connectBookings: 'Connect bookings service here',
     comingSoon: 'Coming soon',
   },
   listings: {

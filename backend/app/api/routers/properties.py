@@ -52,7 +52,7 @@ async def create_property(
     db = get_db()
 
     # Get our internal user record
-    user = db.table("users").select("id").eq("supabase_id", user_id).execute()
+    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
     if not user.data:
         raise HTTPException(status_code=404, detail="User not found.")
 
@@ -81,7 +81,7 @@ async def update_property(
     if not prop.data:
         raise HTTPException(status_code=404, detail="Property not found.")
 
-    user = db.table("users").select("id").eq("supabase_id", user_id).execute()
+    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
     if not user.data or prop.data[0]["owner_id"] != user.data[0]["id"]:
         raise HTTPException(status_code=403, detail="Not authorised.")
 
@@ -109,7 +109,7 @@ async def delete_property(
     if not prop.data:
         raise HTTPException(status_code=404, detail="Property not found.")
 
-    user = db.table("users").select("id").eq("supabase_id", user_id).execute()
+    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
     if not user.data or prop.data[0]["owner_id"] != user.data[0]["id"]:
         raise HTTPException(status_code=403, detail="Not authorised.")
 

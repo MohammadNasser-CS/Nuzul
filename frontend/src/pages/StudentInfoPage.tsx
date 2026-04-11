@@ -38,10 +38,10 @@ export default function StudentInfoPage() {
 
     setLoading(true);
     try {
-      const res = await authService.completeStudentProfile(
-        form as CompleteStudentProfilePayload
-      );
-      setUser(res.data);
+      await authService.completeStudentProfile(form as CompleteStudentProfilePayload);
+      // Fetch the full updated user (includes student_profile) instead of using the partial response
+      const userRes = await authService.getMe();
+      setUser(userRes.data);
       navigate("/dashboard", { replace: true });
     } catch (err: any) {
       const msg = err?.response?.data?.detail ?? t('onboarding.student.genericError');

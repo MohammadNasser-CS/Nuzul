@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import type { User, CompleteProfilePayload, CompleteStudentProfilePayload } from '../types'
+import type { User, StudentProfile, CompleteProfilePayload, CompleteStudentProfilePayload } from '../types'
 import api from './api'
 
 export const authService = {
@@ -29,5 +29,5 @@ export const authService = {
     api.post<User>('/auth/complete-profile', data),
 
   completeStudentProfile: (data: CompleteStudentProfilePayload) =>
-    api.post<User>('/auth/complete-student-profile', data),
+    api.post<StudentProfile>('/auth/complete-student-profile', data),
 }

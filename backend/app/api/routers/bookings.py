@@ -12,7 +12,7 @@ async def my_bookings(
     """Return all bookings made by the current student."""
     db = get_db()
 
-    user = db.table("users").select("id").eq("supabase_id", user_id).execute()
+    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
     if not user.data:
         raise HTTPException(status_code=404, detail="User not found.")
 
@@ -29,7 +29,7 @@ async def create_booking(
     """Student creates a booking request for a property."""
     db = get_db()
 
-    user = db.table("users").select("id").eq("supabase_id", user_id).execute()
+    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
     if not user.data:
         raise HTTPException(status_code=404, detail="User not found.")
 
@@ -55,7 +55,7 @@ async def update_booking(
     if not booking.data:
         raise HTTPException(status_code=404, detail="Booking not found.")
 
-    user = db.table("users").select("id").eq("supabase_id", user_id).execute()
+    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
     if not user.data:
         raise HTTPException(status_code=404, detail="User not found.")
 
