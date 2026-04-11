@@ -1,39 +1,33 @@
-import { Link } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
-import { useLanguageStore } from '../../store/languageStore'
 import { authService } from '../../services/auth'
 
 export function Navbar() {
-  const { t } = useTranslation()
-  const { user, session, clear } = useAuth()
-  const { language, setLanguage } = useLanguageStore()
+  const { user, session } = useAuth()
+  const navigate = useNavigate()
+  const { clear } = useAuth()
 
   const handleSignOut = async (): Promise<void> => {
     await authService.signOut()
     clear()
-    window.location.href = '/login'
+    navigate('/login')
   }
 
   return (
     <nav className="border-b border-gray-200 bg-white px-6 py-3 flex items-center justify-between">
-      <Link to="/admin" className="">
-        <img
-          src="/Nuzul_logo_v1_transparent.svg"
-          alt="Nuzul Logo"
-          className="h-10 w-auto"
-        />
+      <Link to="/" className="text-xl font-bold text-brand-900 tracking-tight">
+        Nuzul
       </Link>
 
       <div className="flex items-center gap-4 text-sm">
         <Link to="/listings" className="text-gray-600 hover:text-gray-900 transition-colors">
-          {t('nav.listings')}
+          Listings
         </Link>
 
         {session ? (
           <>
             <Link to="/dashboard" className="text-gray-600 hover:text-gray-900 transition-colors">
-              {t('nav.dashboard')}
+              Dashboard
             </Link>
             <span className="text-gray-400">|</span>
             <span className="text-gray-500">{user?.full_name ?? user?.email}</span>
@@ -41,31 +35,19 @@ export function Navbar() {
               onClick={handleSignOut}
               className="text-red-500 hover:text-red-700 transition-colors"
             >
-              {t('nav.signOut')}
+              Sign out
             </button>
           </>
         ) : (
           <>
             <Link to="/login" className="text-gray-600 hover:text-gray-900 transition-colors">
-              {t('nav.signIn')}
+              Sign in
             </Link>
             <Link
               to="/register"
               className="bg-brand-600 text-white px-4 py-1.5 rounded-lg hover:bg-brand-700 transition-colors"
             >
-              {t('nav.getStarted')}
+              Get started
             </Link>
           </>
         )}
-
-        {/* Language toggle */}
-        <button
-          onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-          className="border border-gray-200 rounded-lg px-3 py-1 text-gray-600 hover:text-gray-900 hover:border-gray-300 transition-colors text-xs font-medium"
-        >
-          {language === 'ar' ? 'English' : 'عربي'}
-        </button>
-      </div>
-    </nav>
-  )
-}

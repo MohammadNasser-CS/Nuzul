@@ -2,7 +2,9 @@ import axios from 'axios'
 import { supabase } from '../lib/supabase'
 
 const api = axios.create({
-  baseURL: '/api/v1',   // Vite proxies this to the FastAPI backend in dev
+  // In dev: VITE_API_BASE_URL is unset → '/api/v1' is proxied by Vite to localhost:8000
+  // In production: VITE_API_BASE_URL=https://your-app.onrender.com
+  baseURL: `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1`,
 })
 
 // Attach the Supabase JWT to every request automatically
