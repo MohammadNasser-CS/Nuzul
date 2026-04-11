@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { authService } from "../services/auth";
 import { useAuthStore } from "../store/authStore";
 
 type Role = "STUDENT" | "LANDLORD";
 
 export default function RoleSelectionPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate();
   const { setUser } = useAuthStore();
 
@@ -17,7 +19,7 @@ export default function RoleSelectionPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRole) return setError("Please select a role to continue.");
+    if (!selectedRole) return setError(t('onboarding.role.selectRoleError'));
     setError(null);
     setLoading(true);
 
@@ -28,16 +30,13 @@ export default function RoleSelectionPage() {
         role: selectedRole,
       });
       setUser(res.data);
-      // If student, they need to fill more info; landlord goes straight to dashboard
       if (selectedRole === "STUDENT") {
         navigate("/student-info", { replace: true });
       } else {
         navigate("/dashboard", { replace: true });
       }
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ??
-        "Something went wrong. Please try again.";
+      const msg = err?.response?.data?.detail ?? t('onboarding.role.genericError');
       setError(msg);
     } finally {
       setLoading(false);
@@ -47,17 +46,15 @@ export default function RoleSelectionPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-        {/* Header */}
         <div className="mb-8">
           <p className="text-xs font-semibold text-brand-600 uppercase tracking-widest mb-2">
-            Step 1 of 2
+            {t('onboarding.step1of2')}
           </p>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">
-            Tell us about yourself
+            {t('onboarding.role.title')}
           </h1>
           <p className="text-gray-500 text-sm">
-            This helps us personalise your experience. Your role cannot be
-            changed later.
+            {t('onboarding.role.subtitle')}
           </p>
         </div>
 
@@ -68,40 +65,38 @@ export default function RoleSelectionPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Name + Phone */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full name <span className="text-red-400">*</span>
+                {t('onboarding.role.fullName')} <span className="text-red-400">*</span>
               </label>
               <input
                 type="text"
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Ahmad Khalid"
+                placeholder={t('onboarding.role.fullNamePlaceholder')}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Phone number <span className="text-red-400">*</span>
+                {t('onboarding.role.phoneNumber')} <span className="text-red-400">*</span>
               </label>
               <input
                 type="tel"
                 required
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="05xxxxxxxx"
+                placeholder={t('onboarding.role.phonePlaceholder')}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
           </div>
 
-          {/* Role selection cards */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">
-              I am a… <span className="text-red-400">*</span>
+              {t('onboarding.role.iAmA')} <span className="text-red-400">*</span>
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Student card */}
@@ -115,27 +110,15 @@ export default function RoleSelectionPage() {
                 }`}
               >
                 {selectedRole === "STUDENT" && (
-                  <span className="absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600">
-                    <svg
-                      className="h-3 w-3 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 13l4 4L19 7"
-                      />
+                  <span className="absolute top-3 end-3 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600">
+                    <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </span>
                 )}
                 <div className="text-2xl mb-2">🎓</div>
-                <p className="font-semibold text-gray-900 text-sm">Student</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Looking for university housing
-                </p>
+                <p className="font-semibold text-gray-900 text-sm">{t('onboarding.role.student')}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{t('onboarding.role.studentDesc')}</p>
               </button>
 
               {/* Landlord card */}
@@ -149,27 +132,15 @@ export default function RoleSelectionPage() {
                 }`}
               >
                 {selectedRole === "LANDLORD" && (
-                  <span className="absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600">
-                    <svg
-                      className="h-3 w-3 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 13l4 4L19 7"
-                      />
+                  <span className="absolute top-3 end-3 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600">
+                    <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </span>
                 )}
                 <div className="text-2xl mb-2">🏠</div>
-                <p className="font-semibold text-gray-900 text-sm">Landlord</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Listing properties for students
-                </p>
+                <p className="font-semibold text-gray-900 text-sm">{t('onboarding.role.landlord')}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{t('onboarding.role.landlordDesc')}</p>
               </button>
             </div>
           </div>
@@ -180,10 +151,10 @@ export default function RoleSelectionPage() {
             className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
           >
             {loading
-              ? "Saving…"
+              ? t('onboarding.role.saving')
               : selectedRole === "STUDENT"
-              ? "Continue to Student Info →"
-              : "Complete Setup →"}
+              ? t('onboarding.role.continueStudent')
+              : t('onboarding.role.completeSetup')}
           </button>
         </form>
       </div>

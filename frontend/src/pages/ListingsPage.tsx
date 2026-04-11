@@ -2,10 +2,12 @@
 // The data layer is already wired up — just call propertiesService.list()
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { propertiesService } from '../services/properties'
 import type { Property } from '../types'
 
 export default function ListingsPage() {
+  const { t } = useTranslation()
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -14,19 +16,19 @@ export default function ListingsPage() {
     propertiesService
       .list({ available_only: true })
       .then((res) => setProperties(res.data))
-      .catch(() => setError('Failed to load listings.'))
+      .catch(() => setError(t('listings.error')))
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="p-8 text-gray-400">Loading listings…</div>
+  if (loading) return <div className="p-8 text-gray-400">{t('listings.loading')}</div>
   if (error) return <div className="p-8 text-red-500">{error}</div>
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Available listings</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('listings.title')}</h1>
 
       {properties.length === 0 ? (
-        <p className="text-gray-500">No listings available right now.</p>
+        <p className="text-gray-500">{t('listings.noListings')}</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {properties.map((p) => (
@@ -36,8 +38,10 @@ export default function ListingsPage() {
               )}
               <h2 className="font-semibold text-gray-900">{p.title}</h2>
               <p className="text-sm text-gray-500 mt-1">{p.address}, {p.city}</p>
-              <p className="text-brand-600 font-bold mt-3">₪{p.price_per_month} / month</p>
-              <p className="text-xs text-gray-400 mt-1">{p.rooms} room{p.rooms > 1 ? 's' : ''}</p>
+              <p className="text-brand-600 font-bold mt-3">₪{p.price_per_month} {t('listings.perMonth')}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {p.rooms} {p.rooms > 1 ? t('listings.rooms') : t('listings.room')}
+              </p>
             </div>
           ))}
         </div>
