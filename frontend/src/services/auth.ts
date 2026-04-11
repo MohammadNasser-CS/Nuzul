@@ -16,10 +16,7 @@ export const authService = {
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     }),
 
-  signOut: () => {
-    supabase.auth.signOut()
-    localStorage.removeItem('access_token')
-  },
+  signOut: () => supabase.auth.signOut(),
 
   getSession: () => supabase.auth.getSession(),
 

@@ -88,5 +88,5 @@ export function useProfileGuard() {
     if (route !== '/dashboard') {
       navigate(route, { replace: true })
     }
-  }, [user, isLoading])
+  }, [user, isLoading, navigate])
 }

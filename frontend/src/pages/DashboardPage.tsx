@@ -2,11 +2,12 @@
 // useAuth() gives you the logged-in user. Add booking history, listings management, etc.
 
 import { useTranslation } from 'react-i18next'
-import { useAuth } from "../hooks/useAuth"
+import { useAuth, useProfileGuard } from "../hooks/useAuth"
 
 export default function DashboardPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  useProfileGuard() // redirects if profile/student-profile not completed
 
   const roleLabel = user?.role ? t(`enums.role.${user.role}`) : '—'
 
