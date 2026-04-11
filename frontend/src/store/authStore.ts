@@ -19,5 +19,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   setSession: (session) => set({ session }),
   setUser: (user) => set({ user }),
   setLoading: (isLoading) => set({ isLoading }),
-  clear: () => set({ session: null, user: null, isLoading: false }),
+  clear: () => {
+    localStorage.clear()
+    set({ session: null, user: null, isLoading: false })
+  }
 }))

@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { authService } from '../services/auth'
+import { useAuthStore } from '../store/authStore'
+import { getPostLoginRoute } from '../hooks/useAuth'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { setUser } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -13,14 +16,28 @@ export default function LoginPage() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const { error } = await authService.signInWithEmail(email, password)
-    setLoading(false)
-    if (error) return setError(error.message)
-    navigate('/dashboard')
+
+    const { error: supabaseError } = await authService.signInWithEmail(email, password)
+    if (supabaseError) {
+      setLoading(false)
+      return setError(supabaseError.message)
+    }
+
+    // Fetch profile and follow the decision tree
+    try {
+      const res = await authService.getMe()
+      setUser(res.data)
+      navigate(getPostLoginRoute(res.data), { replace: true })
+    } catch {
+      setError('Could not load your profile. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleGoogle = async () => {
     setError(null)
+    // Google OAuth redirects to /auth/callback which handles the routing
     const { error } = await authService.signInWithGoogle()
     if (error) setError(error.message)
   }

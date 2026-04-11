@@ -3,13 +3,15 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import ListingsPage from './pages/ListingsPage'
+import RoleSelectionPage from './pages/RoleSelectionPage'
+import StudentInfoPage from './pages/StudentInfoPage'
+import DashboardPage from './pages/DashboardPage'
 import { Navbar } from './components/layout/Navbar'
 import { useAuthBootstrap } from './hooks/useAuth'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
-import DashboardPage from './pages/DashboardPage'
 
 function AppRoutes() {
-  useAuthBootstrap()   // bootstraps Supabase session into Zustand once at root
+  useAuthBootstrap() // bootstraps Supabase session into Zustand once at root
 
   return (
     <>
@@ -22,8 +24,10 @@ function AppRoutes() {
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/listings" element={<ListingsPage />} />
 
-        {/* Protected */}
+        {/* Profile setup — requires a Supabase session but no completed profile */}
         <Route element={<ProtectedRoute />}>
+          <Route path="/role-selection" element={<RoleSelectionPage />} />
+          <Route path="/student-info" element={<StudentInfoPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
         </Route>
 

@@ -1,19 +1,30 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { authService } from '../services/auth'
+import { useAuthStore } from '../store/authStore'
+import { getPostLoginRoute } from '../hooks/useAuth'
 
 /**
  * Supabase redirects here after Google OAuth.
- * The URL contains the session tokens — Supabase JS picks them up automatically.
+ * After confirming the session, we call /auth/me and follow the
+ * profile-completion decision tree to send the user to the right page.
  */
 export default function AuthCallbackPage() {
   const navigate = useNavigate()
+  const { setUser } = useAuthStore()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        navigate('/dashboard', { replace: true })
-      } else {
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) {
+        navigate('/login', { replace: true })
+        return
+      }
+      try {
+        const res = await authService.getMe()
+        setUser(res.data)
+        navigate(getPostLoginRoute(res.data), { replace: true })
+      } catch {
         navigate('/login', { replace: true })
       }
     })

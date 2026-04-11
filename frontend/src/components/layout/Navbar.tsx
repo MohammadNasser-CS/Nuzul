@@ -5,10 +5,12 @@ import { authService } from '../../services/auth'
 export function Navbar() {
   const { user, session } = useAuth()
   const navigate = useNavigate()
+  const { clear } = useAuth()
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (): Promise<void> => {
     await authService.signOut()
-    navigate('/login')
+    clear()
+    window.location.href = '/login'
   }
 
   return (
