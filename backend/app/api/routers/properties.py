@@ -1,116 +1,221 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from datetime import datetime, timezone
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+
 from app.core.database import get_db
-from app.core.security import get_current_user_id
+from app.core.security import require_landlord, require_admin
+from app.core.storage import cleanup_entity_images
+from app.schemas.property import PropertyCreate, PropertyUpdate
 
 router = APIRouter(prefix="/properties", tags=["properties"])
 
 
-@router.get("/")
-async def list_properties(
-    city: str | None = Query(None),
-    min_price: float | None = Query(None),
-    max_price: float | None = Query(None),
-    rooms: int | None = Query(None),
-    available_only: bool = Query(True),
-):
-    """Public — list and filter properties."""
+# ── Inline request bodies ──────────────────────────────────────────────────────
+
+class RejectPropertyRequest(BaseModel):
+    reason: str
+    admin_notes: Optional[str] = None
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _assert_owns(prop: dict, user: dict) -> None:
+    """Raise 403 if the current user is not the property's landlord."""
+    if str(prop["landlord_id"]) != str(user["id"]):
+        raise HTTPException(
+            status_code=403, detail="You do not own this property.")
+
+
+def _fetch_with_images(db, properties: list[dict]) -> list[dict]:
+    """
+    Attach property images to a list of property dicts.
+    Images table has no FK to properties so we query separately.
+    """
+    if not properties:
+        return properties
+    ids = [str(p["id"]) for p in properties]
+    img_result = (
+        db.table("images")
+        .select("*")
+        .in_("entity_id", ids)
+        .eq("entity_type", "PROPERTY")
+        .execute()
+    )
+    img_map: dict[str, list] = {}
+    for img in img_result.data:
+        img_map.setdefault(str(img["entity_id"]), []).append(img)
+
+    for prop in properties:
+        prop["images"] = img_map.get(str(prop["id"]), [])
+    return properties
+
+
+# ── Landlord endpoints ─────────────────────────────────────────────────────────
+
+@router.get("/my")
+async def my_properties(user: dict = Depends(require_landlord)):
+    """List all properties (with rooms + images) belonging to the current landlord."""
     db = get_db()
-    query = db.table("properties").select("*")
-
-    if available_only:
-        query = query.eq("is_available", True)
-    if city:
-        query = query.eq("city", city)
-    if min_price is not None:
-        query = query.gte("price_per_month", min_price)
-    if max_price is not None:
-        query = query.lte("price_per_month", max_price)
-    if rooms is not None:
-        query = query.eq("rooms", rooms)
-
-    result = query.execute()
-    return result.data
-
-
-@router.get("/{property_id}")
-async def get_property(property_id: str):
-    """Public — get a single property by ID."""
-    db = get_db()
-    result = db.table("properties").select("*").eq("id", property_id).execute()
-
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Property not found.")
-    return result.data[0]
+    result = (
+        db.table("properties")
+        .select("*, rooms(*)")
+        .eq("landlord_id", user["id"])
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return _fetch_with_images(db, result.data)
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_property(
-    data: dict,
-    user_id: str = Depends(get_current_user_id),
+    data: PropertyCreate,
+    user: dict = Depends(require_landlord),
 ):
-    """Create a new property listing (authenticated users only)."""
+    """
+    Landlord — create a new property listing.
+    Starts as PENDING; admin must approve before it appears in public listings.
+    """
     db = get_db()
 
-    # Get our internal user record
-    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
-    if not user.data:
-        raise HTTPException(status_code=404, detail="User not found.")
+    # mode="json" serialises enums to their string values
+    payload = data.model_dump(mode="json")
+    payload["landlord_id"] = user["id"]
+    payload["verification_status"] = "PENDING"
+    payload["is_active"] = True
 
-    allowed = {
-        "title", "description", "address", "city",
-        "price_per_month", "rooms", "is_available",
-        "near_university", "image_url"
-    }
-    property_data = {k: v for k, v in data.items() if k in allowed}
-    property_data["owner_id"] = user.data[0]["id"]
-
-    result = db.table("properties").insert(property_data).execute()
+    result = db.table("properties").insert(payload).execute()
     return result.data[0]
 
 
-@router.patch("/{property_id}")
+@router.put("/{property_id}")
 async def update_property(
     property_id: str,
-    data: dict,
-    user_id: str = Depends(get_current_user_id),
+    data: PropertyUpdate,
+    user: dict = Depends(require_landlord),
 ):
-    """Update a property — owner only."""
+    """
+    Landlord — update own property.
+    Editing an APPROVED property resets it to PENDING for re-review.
+    """
     db = get_db()
 
-    prop = db.table("properties").select("*").eq("id", property_id).execute()
-    if not prop.data:
+    prop_result = db.table("properties").select(
+        "*").eq("id", property_id).execute()
+    if not prop_result.data:
         raise HTTPException(status_code=404, detail="Property not found.")
 
-    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
-    if not user.data or prop.data[0]["owner_id"] != user.data[0]["id"]:
-        raise HTTPException(status_code=403, detail="Not authorised.")
+    prop = prop_result.data[0]
+    _assert_owns(prop, user)
 
-    allowed = {
-        "title", "description", "address", "city",
-        "price_per_month", "rooms", "is_available",
-        "near_university", "image_url"
-    }
-    update_data = {k: v for k, v in data.items() if k in allowed}
+    update_payload = data.model_dump(mode="json", exclude_none=True)
+    if not update_payload:
+        raise HTTPException(status_code=422, detail="No fields to update.")
+
+    # Re-trigger moderation whenever an approved property is changed
+    if prop.get("verification_status") == "APPROVED":
+        update_payload["verification_status"] = "PENDING"
+        update_payload["verified_at"] = None
+        update_payload["verified_by"] = None
 
     result = db.table("properties").update(
-        update_data).eq("id", property_id).execute()
+        update_payload).eq("id", property_id).execute()
     return result.data[0]
 
 
 @router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_property(
     property_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(require_landlord),
 ):
-    """Delete a property — owner only."""
+    """Landlord — delete own property (rooms + images cascade via DB)."""
     db = get_db()
 
-    prop = db.table("properties").select("*").eq("id", property_id).execute()
-    if not prop.data:
+    prop_result = db.table("properties").select(
+        "landlord_id").eq("id", property_id).execute()
+    if not prop_result.data:
         raise HTTPException(status_code=404, detail="Property not found.")
 
-    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
-    if not user.data or prop.data[0]["owner_id"] != user.data[0]["id"]:
-        raise HTTPException(status_code=403, detail="Not authorised.")
+    _assert_owns(prop_result.data[0], user)
 
+    # ── Clean up images before deletion (no FK cascade on images table) ───────
+    # 1. Get all room IDs belonging to this property
+    rooms_result = db.table("rooms").select("id").eq(
+        "property_id", property_id).execute()
+    room_ids = [str(r["id"]) for r in rooms_result.data]
+
+    # 2. Delete room images (storage + DB records)
+    cleanup_entity_images(db, room_ids, "ROOM")
+
+    # 3. Delete property images (storage + DB records)
+    cleanup_entity_images(db, [property_id], "PROPERTY")
+
+    # 4. Delete property — rooms cascade via FK
     db.table("properties").delete().eq("id", property_id).execute()
+
+
+# ── Admin endpoints ────────────────────────────────────────────────────────────
+
+@router.get("/pending")
+async def list_pending_properties(admin: dict = Depends(require_admin)):
+    """Admin — list all properties awaiting moderation (with rooms + images)."""
+    db = get_db()
+    result = (
+        db.table("properties")
+        .select("*, rooms(*)")
+        .eq("verification_status", "PENDING")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return _fetch_with_images(db, result.data)
+
+
+@router.post("/{property_id}/approve")
+async def approve_property(
+    property_id: str,
+    admin: dict = Depends(require_admin),
+):
+    """Admin — approve a pending property, making it visible in public listings."""
+    db = get_db()
+
+    prop_result = db.table("properties").select(
+        "id").eq("id", property_id).execute()
+    if not prop_result.data:
+        raise HTTPException(status_code=404, detail="Property not found.")
+
+    result = db.table("properties").update({
+        "verification_status": "APPROVED",
+        "verified_at": datetime.now(timezone.utc).isoformat(),
+        "verified_by": admin["id"],
+        "rejected_at": None,
+        "rejected_by": None,
+        "rejection_reason": None,
+    }).eq("id", property_id).execute()
+
+    return result.data[0]
+
+
+@router.post("/{property_id}/reject")
+async def reject_property(
+    property_id: str,
+    body: RejectPropertyRequest,
+    admin: dict = Depends(require_admin),
+):
+    """Admin — reject a pending property with a mandatory reason."""
+    db = get_db()
+
+    prop_result = db.table("properties").select(
+        "id").eq("id", property_id).execute()
+    if not prop_result.data:
+        raise HTTPException(status_code=404, detail="Property not found.")
+
+    result = db.table("properties").update({
+        "verification_status": "REJECTED",
+        "rejected_at": datetime.now(timezone.utc).isoformat(),
+        "rejected_by": admin["id"],
+        "rejection_reason": body.reason,
+        "admin_notes": body.admin_notes,
+    }).eq("id", property_id).execute()
+
+    return result.data[0]
