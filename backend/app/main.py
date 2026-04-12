@@ -5,7 +5,8 @@ import logging
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.api.routers import auth, properties, bookings
+from app.api.routers import auth, bookings
+from app.api.routers import listings, properties, rooms, images
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -45,6 +46,12 @@ app.add_middleware(
 )
 
 # ── Routers ───────────────────────────────────────────────────────────────────
+app.include_router(auth.router,       prefix="/api/v1")
+app.include_router(listings.router,   prefix="/api/v1")   # GET /listings  (public)
+app.include_router(properties.router, prefix="/api/v1")   # /properties    (landlord + admin)
+app.include_router(rooms.router,      prefix="/api/v1")   # /rooms         (landlord + public)
+app.include_router(images.router,     prefix="/api/v1")   # /images        (landlord)
+app.include_router(bookings.router,   prefix="/api/v1")
 
 
 @app.get("/health", tags=["health"])
@@ -55,8 +62,3 @@ async def health_check():
         "env": settings.app_env,
         "supabase": bool(settings.supabase_url),
     }
-
-
-app.include_router(auth.router,       prefix="/api/v1")
-app.include_router(properties.router, prefix="/api/v1")
-app.include_router(bookings.router,   prefix="/api/v1")

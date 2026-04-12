@@ -1,41 +1,53 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from typing import Optional
+
 from app.core.database import get_db
-from app.core.security import get_current_user_id
+from app.core.security import get_current_user
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 
+# ── Request bodies ─────────────────────────────────────────────────────────────
+
+class BookingCreate(BaseModel):
+    property_id: str
+    move_in_date: str
+    move_out_date: Optional[str] = None
+    message: Optional[str] = None
+
+
+class BookingUpdate(BaseModel):
+    status: Optional[str] = None        # "pending" | "confirmed" | "cancelled"
+    move_out_date: Optional[str] = None
+
+
+# ── Endpoints ──────────────────────────────────────────────────────────────────
+
 @router.get("/my")
-async def my_bookings(
-    user_id: str = Depends(get_current_user_id),
-):
-    """Return all bookings made by the current student."""
+async def my_bookings(user: dict = Depends(get_current_user)):
+    """Return all bookings made by the current user."""
     db = get_db()
-
-    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
-    if not user.data:
-        raise HTTPException(status_code=404, detail="User not found.")
-
-    result = db.table("bookings").select(
-        "*").eq("student_id", user.data[0]["id"]).execute()
+    result = (
+        db.table("bookings")
+        .select("*")
+        .eq("student_id", user["id"])
+        .order("created_at", desc=True)
+        .execute()
+    )
     return result.data
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_booking(
-    data: dict,
-    user_id: str = Depends(get_current_user_id),
+    data: BookingCreate,
+    user: dict = Depends(get_current_user),
 ):
-    """Student creates a booking request for a property."""
+    """User creates a booking request for a property."""
     db = get_db()
 
-    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
-    if not user.data:
-        raise HTTPException(status_code=404, detail="User not found.")
-
-    allowed = {"property_id", "move_in_date", "move_out_date", "message"}
-    booking_data = {k: v for k, v in data.items() if k in allowed}
-    booking_data["student_id"] = user.data[0]["id"]
+    booking_data = data.model_dump(exclude_none=True)
+    booking_data["student_id"] = user["id"]
     booking_data["status"] = "pending"
 
     result = db.table("bookings").insert(booking_data).execute()
@@ -45,26 +57,23 @@ async def create_booking(
 @router.patch("/{booking_id}")
 async def update_booking(
     booking_id: str,
-    data: dict,
-    user_id: str = Depends(get_current_user_id),
+    data: BookingUpdate,
+    user: dict = Depends(get_current_user),
 ):
-    """Student can update or cancel their own booking."""
+    """User can update (e.g. cancel) their own booking."""
     db = get_db()
 
-    booking = db.table("bookings").select("*").eq("id", booking_id).execute()
-    if not booking.data:
+    booking_result = db.table("bookings").select("*").eq("id", booking_id).execute()
+    if not booking_result.data:
         raise HTTPException(status_code=404, detail="Booking not found.")
 
-    user = db.table("user_profiles").select("id").eq("supabase_user_id", user_id).execute()
-    if not user.data:
-        raise HTTPException(status_code=404, detail="User not found.")
+    booking = booking_result.data[0]
+    if booking["student_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="You do not own this booking.")
 
-    if booking.data[0]["student_id"] != user.data[0]["id"]:
-        raise HTTPException(status_code=403, detail="Not authorised.")
+    update_data = data.model_dump(exclude_none=True)
+    if not update_data:
+        raise HTTPException(status_code=422, detail="No fields to update.")
 
-    allowed = {"status", "move_out_date"}
-    update_data = {k: v for k, v in data.items() if k in allowed}
-
-    result = db.table("bookings").update(
-        update_data).eq("id", booking_id).execute()
+    result = db.table("bookings").update(update_data).eq("id", booking_id).execute()
     return result.data[0]

@@ -85,6 +85,30 @@ async def require_complete_profile(
     return user
 
 
+async def require_landlord(
+    user: dict = Depends(require_complete_profile),
+) -> dict:
+    """Blocks access if the user is not a LANDLORD with a completed profile."""
+    if user.get("role") != "LANDLORD":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This resource is only accessible to landlords.",
+        )
+    return user
+
+
+async def require_admin(
+    user: dict = Depends(require_complete_profile),
+) -> dict:
+    """Blocks access if the user is not an ADMIN."""
+    if user.get("role") != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This resource is only accessible to admins.",
+        )
+    return user
+
+
 async def require_student_profile(
     user: dict = Depends(require_complete_profile),
 ) -> dict:
