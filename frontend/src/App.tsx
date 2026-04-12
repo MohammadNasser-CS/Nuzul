@@ -3,15 +3,18 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import ListingsPage from './pages/ListingsPage'
+import PropertyDetailPage from './pages/PropertyDetailPage'
 import RoleSelectionPage from './pages/RoleSelectionPage'
 import StudentInfoPage from './pages/StudentInfoPage'
 import DashboardPage from './pages/DashboardPage'
+import AddPropertyPage from './pages/landlord/AddPropertyPage'
 import { Navbar } from './components/layout/Navbar'
 import { useAuthBootstrap } from './hooks/useAuth'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
+import { LandlordRoute } from './components/layout/LandlordRoute'
 
 function AppRoutes() {
-  useAuthBootstrap() // bootstraps Supabase session into Zustand once at root
+  useAuthBootstrap()
 
   return (
     <>
@@ -23,12 +26,18 @@ function AppRoutes() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/listings" element={<ListingsPage />} />
+        <Route path="/listings/:id" element={<PropertyDetailPage />} />
 
-        {/* Profile setup — requires a Supabase session but no completed profile */}
+        {/* Authenticated */}
         <Route element={<ProtectedRoute />}>
           <Route path="/role-selection" element={<RoleSelectionPage />} />
           <Route path="/student-info" element={<StudentInfoPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+        </Route>
+
+        {/* Landlord only */}
+        <Route element={<LandlordRoute />}>
+          <Route path="/landlord/add-property" element={<AddPropertyPage />} />
         </Route>
 
         {/* Fallback */}
