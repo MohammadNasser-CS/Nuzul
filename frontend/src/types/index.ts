@@ -165,7 +165,7 @@ export interface Booking {
 export type BookingCreate = Pick<Booking, 'property_id' | 'move_in_date' | 'move_out_date' | 'message'>
 export type BookingUpdate = Partial<Pick<Booking, 'status' | 'move_out_date'>>
 
-// ── Filters ───────────────────────────────────────────────────────────────────
+// ── Filters & Pagination ──────────────────────────────────────────────────────
 export interface ListingFilters {
   city?: string
   property_type?: Property['property_type']
@@ -173,4 +173,13 @@ export interface ListingFilters {
   room_type?: Room['room_type']
   min_price?: number
   max_price?: number
+}
+
+/** Shape returned by GET /listings (paginated) */
+export interface PaginatedListings {
+  items: Property[]
+  total: number   // total matching properties across all pages
+  page: number    // current page (1-based)
+  limit: number   // page size used
+  pages: number   // total number of pages
 }

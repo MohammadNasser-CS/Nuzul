@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { listingsService } from '@/services/properties'
+import { listingsService, PAGE_SIZE } from '@/services/properties'
 import { PropertyCard } from '@/components/property/PropertyCard'
 import type { Property, ListingFilters } from '@/types'
 
@@ -8,48 +8,136 @@ const PROPERTY_TYPES = ['APARTMENT', 'HOUSE', 'STUDIO'] as const
 const GENDER_PREFS = ['MALE', 'FEMALE', 'ANY'] as const
 const ROOM_TYPES = ['SINGLE', 'SHARED', 'STUDIO'] as const
 
+// ─── Pagination bar ───────────────────────────────────────────────────────────
+function Pagination({
+  page,
+  totalPages,
+  onPage,
+}: {
+  page: number
+  totalPages: number
+  onPage: (p: number) => void
+}) {
+  const { t } = useTranslation()
+  if (totalPages <= 1) return null
+
+  // Show: first, last, current ±1, and ellipsis for gaps
+  const pages: (number | 'ellipsis')[] = []
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
+      pages.push(i)
+    } else if (pages[pages.length - 1] !== 'ellipsis') {
+      pages.push('ellipsis')
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-1 mt-10">
+      <button
+        onClick={() => onPage(page - 1)}
+        disabled={page === 1}
+        className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        aria-label={t('pagination.prev')}
+      >
+        ‹
+      </button>
+
+      {pages.map((p, i) =>
+        p === 'ellipsis' ? (
+          <span key={`e-${i}`} className="w-9 h-9 flex items-center justify-center text-gray-400 text-sm">
+            …
+          </span>
+        ) : (
+          <button
+            key={p}
+            onClick={() => onPage(p)}
+            className={`w-9 h-9 rounded-lg border text-sm font-medium transition-colors ${
+              p === page
+                ? 'bg-brand-600 border-brand-600 text-white'
+                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {p}
+          </button>
+        )
+      )}
+
+      <button
+        onClick={() => onPage(page + 1)}
+        disabled={page === totalPages}
+        className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        aria-label={t('pagination.next')}
+      >
+        ›
+      </button>
+    </div>
+  )
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function ListingsPage() {
   const { t } = useTranslation()
-  const [properties, setProperties] = useState<Property[]>([])
+
+  // Server-side data
+  const [items, setItems] = useState<Property[]>([])
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showFilters, setShowFilters] = useState(false)
 
+  // Committed filters (trigger a fresh page-1 fetch) and draft (filter panel)
   const [filters, setFilters] = useState<ListingFilters>({})
   const [draft, setDraft] = useState<ListingFilters>({})
+  const [showFilters, setShowFilters] = useState(false)
 
+  // Current page — updated independently (no filter change)
+  const [page, setPage] = useState(1)
+
+  // ── helpers ─────────────────────────────────────────────────────────────────
   function setDraftField<K extends keyof ListingFilters>(key: K, value: ListingFilters[K]) {
     setDraft((d) => ({ ...d, [key]: value || undefined }))
   }
 
   function applyFilters() {
     setFilters(draft)
+    setPage(1)           // always go back to page 1 when filters change
     setShowFilters(false)
   }
 
   function resetFilters() {
     setDraft({})
     setFilters({})
+    setPage(1)
   }
 
+  function handlePageChange(p: number) {
+    setPage(p)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // ── fetch ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     setLoading(true)
     setError(null)
     listingsService
-      .list(filters)
+      .list(filters, page, PAGE_SIZE)
       .then((res) => {
-        // Rule: don't show properties without an image
-        const withImages = res.data.filter(
+        const data = res.data
+        // Rule: don't display properties without an image
+        const withImages = data.items.filter(
           (p) => p.cover_image || (p.images && p.images.length > 0)
         )
-        setProperties(withImages)
+        setItems(withImages)
+        setTotal(data.total)
+        setTotalPages(data.pages)
       })
       .catch(() => setError(t('listings.error')))
       .finally(() => setLoading(false))
-  }, [filters, t])
+  }, [filters, page, t])
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length
 
+  // ── render ───────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       {/* Header */}
@@ -58,7 +146,12 @@ export default function ListingsPage() {
           <h1 className="text-2xl font-bold text-gray-900">{t('listings.title')}</h1>
           {!loading && (
             <p className="text-sm text-gray-500 mt-0.5">
-              {properties.length} {t('listings.results')}
+              {total} {t('listings.results')}
+              {totalPages > 1 && (
+                <span className="ms-2 text-gray-400">
+                  · {t('pagination.pageOf', { page, total: totalPages })}
+                </span>
+              )}
             </p>
           )}
         </div>
@@ -114,7 +207,7 @@ export default function ListingsPage() {
               </select>
             </div>
 
-            {/* Gender */}
+            {/* Gender preference */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
                 {t('listings.filters.gender')}
@@ -198,7 +291,7 @@ export default function ListingsPage() {
       {/* Content */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: PAGE_SIZE }).map((_, i) => (
             <div key={i} className="rounded-2xl border border-gray-100 overflow-hidden animate-pulse">
               <div className="h-48 bg-gray-200" />
               <div className="p-4 space-y-2">
@@ -214,7 +307,7 @@ export default function ListingsPage() {
           <p className="text-4xl mb-3">⚠</p>
           <p>{error}</p>
         </div>
-      ) : properties.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-5xl mb-4">🏠</p>
           <p className="text-lg font-medium text-gray-500">{t('listings.noListings')}</p>
@@ -225,11 +318,14 @@ export default function ListingsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {properties.map((p) => (
-            <PropertyCard key={p.id} property={p} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {items.map((p) => (
+              <PropertyCard key={p.id} property={p} />
+            ))}
+          </div>
+          <Pagination page={page} totalPages={totalPages} onPage={handlePageChange} />
+        </>
       )}
     </div>
   )

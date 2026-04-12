@@ -1,10 +1,14 @@
 import api from './api'
-import type { Property, PropertyCreate, PropertyUpdate, ListingFilters } from '@/types'
+import type { Property, PropertyCreate, PropertyUpdate, ListingFilters, PaginatedListings } from '@/types'
+
+export const PAGE_SIZE = 6
 
 // Public listings (APPROVED only, no auth required)
 export const listingsService = {
-  list: (filters?: ListingFilters) =>
-    api.get<Property[]>('/listings', { params: filters }),
+  list: (filters?: ListingFilters, page = 1, limit = PAGE_SIZE) =>
+    api.get<PaginatedListings>('/listings', {
+      params: { ...filters, page, limit },
+    }),
 
   getById: (id: string) =>
     api.get<Property>(`/listings/${id}`),

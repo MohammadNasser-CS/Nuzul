@@ -249,6 +249,8 @@ export default {
         cancel: 'إلغاء',
         error: 'فشل حفظ الغرفة. يرجى المحاولة مجدداً.',
         bedsError: 'الأسرّة المتاحة لا يمكن أن تتجاوز إجمالي الأسرّة.',
+        invalidPrice: 'يرجى إدخال سعر صحيح أكبر من 0.',
+        invalidBeds: 'يرجى إدخال عدد أسرّة صحيح (1 على الأقل).',
       },
     },
     success: {
@@ -258,6 +260,11 @@ export default {
       addAnother: 'إضافة عقار آخر',
       goToDashboard: 'الذهاب للوحة التحكم',
     },
+  },
+  pagination: {
+    prev: 'الصفحة السابقة',
+    next: 'الصفحة التالية',
+    pageOf: 'صفحة {{page}} من {{total}}',
   },
   enums: {
     role: {

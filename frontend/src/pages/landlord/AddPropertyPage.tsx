@@ -16,13 +16,12 @@ function StepBar({ current, total, labels }: { current: number; total: number; l
         <div key={i} className="flex items-center flex-1 last:flex-none">
           <div className="flex flex-col items-center">
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
-                i < current
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${i < current
                   ? 'bg-brand-600 border-brand-600 text-white'
                   : i === current
-                  ? 'bg-white border-brand-600 text-brand-600'
-                  : 'bg-white border-gray-300 text-gray-400'
-              }`}
+                    ? 'bg-white border-brand-600 text-brand-600'
+                    : 'bg-white border-gray-300 text-gray-400'
+                }`}
             >
               {i < current ? '✓' : i + 1}
             </div>
@@ -178,11 +177,10 @@ function StepInfo({ data, onChange, onNext }: {
             return (
               <label
                 key={key}
-                className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 cursor-pointer transition-colors ${
-                  data[field]
+                className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 cursor-pointer transition-colors ${data[field]
                     ? 'border-brand-500 bg-brand-50'
                     : 'border-gray-200 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <input
                   type="checkbox"
@@ -248,7 +246,7 @@ function StepLocation({ infoData, onBack, onCreated }: {
       description: infoData.description || undefined,
       building_name: infoData.building_name || undefined,
       building_number: infoData.building_number || undefined,
-      floor_number: infoData.floor_number ? parseInt(infoData.floor_number) : undefined,
+      floor_number: infoData.floor_number ? (isNaN(parseInt(infoData.floor_number, 10)) ? undefined : parseInt(infoData.floor_number, 10)) : undefined,
       city: city.trim(),
       latitude: location.lat,
       longitude: location.lng,
@@ -391,9 +389,17 @@ function RoomFormInline({ propertyId, onSaved, onCancel }: {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    const beds = parseInt(form.number_of_beds)
-    const available = parseInt(form.available_beds)
-    if (available > beds) {
+    const beds = parseInt(form.number_of_beds, 10)
+    const available = parseInt(form.available_beds, 10)
+    if (!form.price_per_bed || isNaN(parseFloat(form.price_per_bed)) || parseFloat(form.price_per_bed) <= 0) {
+      setError(t('addProperty.rooms.form.invalidPrice'))
+      return
+    }
+    if (isNaN(beds) || beds < 1) {
+      setError(t('addProperty.rooms.form.invalidBeds'))
+      return
+    }
+    if (isNaN(available) || available < 0 || available > beds) {
       setError(t('addProperty.rooms.form.bedsError'))
       return
     }
@@ -522,9 +528,8 @@ function RoomFormInline({ propertyId, onSaved, onCancel }: {
             return (
               <label
                 key={key}
-                className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 cursor-pointer transition-colors text-xs ${
-                  form[key] ? 'border-brand-500 bg-white' : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
+                className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 cursor-pointer transition-colors text-xs ${form[key] ? 'border-brand-500 bg-white' : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
               >
                 <input
                   type="checkbox"
@@ -677,8 +682,6 @@ function SuccessScreen({ property }: { property: Property }) {
         <button
           onClick={() => navigate('/landlord/add-property')}
           className="border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-5 py-2.5 rounded-lg text-sm transition-colors"
-          // Force re-mount
-          key="add-another"
         >
           {t('addProperty.success.addAnother')}
         </button>
