@@ -48,18 +48,18 @@ export function ImageGallery({ images, onClose, inline = false }: Props) {
             <button
               onClick={prev}
               aria-label={t('gallery.prev')}
-              className="absolute start-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+              className="absolute inset-s-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-9 h-9 rounded-full flex items-center justify-center transition-colors"
             >
               ‹
             </button>
             <button
               onClick={next}
               aria-label={t('gallery.next')}
-              className="absolute end-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+              className="absolute inset-e-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-9 h-9 rounded-full flex items-center justify-center transition-colors"
             >
               ›
             </button>
-            <span className="absolute bottom-3 start-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full">
+            <span className="absolute bottom-3 inset-s-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full">
               {current + 1} / {images.length}
             </span>
           </>
@@ -68,7 +68,7 @@ export function ImageGallery({ images, onClose, inline = false }: Props) {
         {!inline && onClose && (
           <button
             onClick={onClose}
-            className="absolute top-3 end-3 bg-black/50 hover:bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg leading-none transition-colors"
+            className="absolute top-3 inset-e-3 bg-black/50 hover:bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg leading-none transition-colors"
           >
             ×
           </button>
@@ -82,9 +82,8 @@ export function ImageGallery({ images, onClose, inline = false }: Props) {
             <button
               key={i}
               onClick={() => setCurrent(i)}
-              className={`shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-colors ${
-                i === current ? 'border-brand-500' : 'border-transparent opacity-60 hover:opacity-100'
-              }`}
+              className={`shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-colors ${i === current ? 'border-brand-500' : 'border-transparent opacity-60 hover:opacity-100'
+                }`}
             >
               <img src={src} alt="" className="w-full h-full object-cover" />
             </button>

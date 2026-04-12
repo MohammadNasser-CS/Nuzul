@@ -103,7 +103,7 @@ export function ImageUpload({ entityId, entityType, images, onUploaded, onDelete
             <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden">
               <img src={img.image_url} alt="" className="w-full h-full object-cover" />
               {img.is_primary && (
-                <span className="absolute top-1 start-1 text-xs bg-brand-600 text-white px-1.5 py-0.5 rounded-full">
+                <span className="absolute top-1 inset-s-1 text-xs bg-brand-600 text-white px-1.5 py-0.5 rounded-full">
                   {t('imageUpload.primary')}
                 </span>
               )}

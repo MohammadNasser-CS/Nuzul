@@ -10,11 +10,10 @@ import type { Property } from '@/types'
 function AmenityBadge({ active, label }: { active: boolean; label: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border ${
-        active
+      className={`inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border ${active
           ? 'bg-brand-50 border-brand-200 text-brand-700'
           : 'bg-gray-50 border-gray-200 text-gray-400 line-through'
-      }`}
+        }`}
     >
       {label}
     </span>
@@ -91,7 +90,7 @@ export default function PropertyDetailPage() {
               className="w-full h-72 sm:h-96 object-cover"
             />
             {images.length > 1 && (
-              <div className="absolute bottom-3 end-3 flex gap-1.5">
+              <div className="absolute bottom-3 inset-e-3 flex gap-1.5">
                 {images.slice(1, 4).map((src, i) => (
                   <img key={i} src={src} alt="" className="w-16 h-12 object-cover rounded-lg border-2 border-white" />
                 ))}
@@ -127,13 +126,12 @@ export default function PropertyDetailPage() {
                 {t(`enums.propertyType.${property.property_type}`)}
               </span>
               <span
-                className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                  property.gender_preference === 'ANY'
+                className={`text-xs font-medium px-2.5 py-1 rounded-full ${property.gender_preference === 'ANY'
                     ? 'bg-gray-100 text-gray-600'
                     : property.gender_preference === 'MALE'
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'bg-pink-50 text-pink-700'
-                }`}
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'bg-pink-50 text-pink-700'
+                  }`}
               >
                 {t(`enums.genderPref.${property.gender_preference}`)}
               </span>

@@ -36,7 +36,7 @@ export function RoomCard({ room, onSelect }: Props) {
             className="w-full h-full object-cover"
           />
           {images.length > 1 && (
-            <span className="absolute bottom-2 end-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">
+            <span className="absolute bottom-2 inset-e-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">
               +{images.length - 1}
             </span>
           )}
@@ -50,11 +50,10 @@ export function RoomCard({ room, onSelect }: Props) {
             {t(`enums.roomType.${room.room_type}`)}
           </span>
           <span
-            className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-              room.is_available
+            className={`text-xs font-medium px-2 py-0.5 rounded-full ${room.is_available
                 ? 'bg-green-50 text-green-700'
                 : 'bg-red-50 text-red-500'
-            }`}
+              }`}
           >
             {room.is_available ? t('property.available') : t('property.unavailable')}
           </span>

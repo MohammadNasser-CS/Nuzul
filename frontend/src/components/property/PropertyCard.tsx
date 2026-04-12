@@ -43,11 +43,10 @@ export function PropertyCard({ property }: Props) {
         {/* Gender badge */}
         {property.gender_preference !== 'ANY' && (
           <span
-            className={`absolute top-3 start-3 text-xs font-medium px-2 py-0.5 rounded-full ${
-              property.gender_preference === 'MALE'
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-pink-100 text-pink-700'
-            }`}
+            className={`absolute top-3 inset-s-3 text-xs font-medium px-2 py-0.5 rounded-full ${property.gender_preference === 'MALE'
+              ? 'bg-blue-100 text-blue-700'
+              : 'bg-pink-100 text-pink-700'
+              }`}
           >
             {t(`enums.genderPref.${property.gender_preference}`)}
           </span>
