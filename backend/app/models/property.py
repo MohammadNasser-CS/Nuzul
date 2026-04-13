@@ -1,24 +1,30 @@
-from sqlmodel import SQLModel, Field
-from uuid import UUID, uuid4
-from datetime import datetime
-from typing import Optional
+from enum import Enum
 
 
-class Property(SQLModel, table=True):
-    __tablename__ = "properties"
+class PropertyType(str, Enum):
+    APARTMENT = "APARTMENT"
+    HOUSE = "HOUSE"
+    STUDIO = "STUDIO"
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    owner_id: UUID = Field(foreign_key="users.id", index=True)
 
-    title: str
-    description: Optional[str] = None
-    address: str
-    city: str
-    price_per_month: float
-    rooms: int = Field(default=1)
-    is_available: bool = Field(default=True)
-    near_university: Optional[str] = None   # university name / distance tag
-    image_url: Optional[str] = None
+class GenderPreference(str, Enum):
+    MALE = "MALE"
+    FEMALE = "FEMALE"
+    ANY = "ANY"
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class VerificationStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+class RoomType(str, Enum):
+    SINGLE = "SINGLE"
+    SHARED = "SHARED"
+    STUDIO = "STUDIO"
+
+
+class ImageEntityType(str, Enum):
+    PROPERTY = "PROPERTY"
+    ROOM = "ROOM"
