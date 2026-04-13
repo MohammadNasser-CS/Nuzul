@@ -15,18 +15,21 @@ export function getPostLoginRoute(user: User): string {
  * Bootstraps Supabase auth state into Zustand.
  * Call this ONCE at the app root (AppRoutes in App.tsx).
  *
- * WHY NOT onAuthStateChange(INITIAL_SESSION)?
- *   Supabase holds an internal async lock while calling onAuthStateChange
- *   listeners. Any code inside a listener that calls supabase.auth.getSession()
- *   (even indirectly — e.g. through the Axios request interceptor) tries to
- *   acquire the same lock → deadlock → the await never resolves →
- *   setLoading(false) is never called → app is frozen on the loading spinner.
+ * WHY onAuthStateChange(INITIAL_SESSION) instead of getSession() directly?
+ *   In production, the stored access token is often expired on page refresh.
+ *   Supabase silently refreshes it, holding an internal async lock during the
+ *   refresh. Calling getSession() while that lock is held (even indirectly via
+ *   the Axios request interceptor) tries to acquire the same lock → deadlock →
+ *   the await never resolves → setLoading(false) is never called → spinner
+ *   freezes forever.
  *
- *   The safe pattern is:
- *     1. Call supabase.auth.getSession() DIRECTLY (no lock held) to initialize.
- *     2. Use onAuthStateChange only for subsequent events (SIGNED_IN,
- *        TOKEN_REFRESHED, SIGNED_OUT), and wrap any further auth calls in
- *        setTimeout(0) to escape the lock context.
+ *   The safe pattern:
+ *     1. Use onAuthStateChange INITIAL_SESSION for initialization — Supabase
+ *        guarantees this fires exactly once on load with the resolved session.
+ *     2. Wrap any API calls (getMe) in setTimeout(0) to escape the lock context
+ *        before calling the Axios interceptor which calls getSession() again.
+ *     3. Handle subsequent events (SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT)
+ *        the same way.
  */
 export function useAuthBootstrap() {
   const { setSession, setUser, setLoading, clear } = useAuthStore()
@@ -34,42 +37,38 @@ export function useAuthBootstrap() {
   useEffect(() => {
     let alive = true // guard against state updates after unmount
 
-    // ── 1. Initial session check ──────────────────────────────────────────────
-    // getSession() auto-refreshes the access token if it is expired, then
-    // returns the (possibly renewed) session — safe to call outside a callback.
-    const bootstrap = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-
-        if (!alive) return
-
-        setSession(session)
-
-        if (session) {
-          // getMe() uses the Axios interceptor which calls getSession() again.
-          // That is fine here because we are NOT inside a Supabase callback,
-          // so no lock is held.
-          const res = await authService.getMe()
-          if (alive) setUser(res.data)
-        }
-      } catch {
-        if (alive) setUser(null)
-      } finally {
-        // Always unlock the UI — this is the only place it must be guaranteed.
-        if (alive) setLoading(false)
-      }
-    }
-
-    bootstrap()
-
-    // ── 2. Subsequent auth changes ────────────────────────────────────────────
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (!alive) return
 
+      // ── Initial load (page refresh or first visit) ──────────────────────────
+      // INITIAL_SESSION fires exactly once when the listener is registered.
+      // Supabase has already resolved/refreshed the token by this point.
+      if (event === 'INITIAL_SESSION') {
+        setSession(session)
+        if (!session) {
+          // No stored session — user is not logged in, unblock immediately.
+          setLoading(false)
+          return
+        }
+        // setTimeout(0) escapes the Supabase lock before calling getMe(),
+        // which calls getSession() internally via the Axios interceptor.
+        setTimeout(async () => {
+          if (!alive) return
+          try {
+            const res = await authService.getMe()
+            if (alive) setUser(res.data)
+          } catch {
+            if (alive) setUser(null)
+          } finally {
+            if (alive) setLoading(false)
+          }
+        }, 0)
+        return
+      }
+
+      // ── Subsequent auth changes ─────────────────────────────────────────────
       if (event === 'SIGNED_OUT') {
         clear()
         return
@@ -82,8 +81,6 @@ export function useAuthBootstrap() {
       }
 
       // SIGNED_IN fires after an explicit login action.
-      // Use setTimeout(0) to escape the Supabase lock so that getMe() (which
-      // calls getSession() via the Axios interceptor) does not deadlock.
       if (event === 'SIGNED_IN') {
         const capturedSession = session
         setTimeout(async () => {
