@@ -1,9 +1,13 @@
+import math
 from fastapi import APIRouter, HTTPException, Query
 from app.core.database import get_db
 from app.models.property import GenderPreference, PropertyType, RoomType
 from typing import Optional
 
 router = APIRouter(prefix="/listings", tags=["listings"])
+
+DEFAULT_PAGE_SIZE = 6
+MAX_PAGE_SIZE = 50
 
 
 def _inject_is_available(room: dict) -> dict:
@@ -42,11 +46,22 @@ async def list_listings(
     room_type: Optional[RoomType] = Query(None),
     min_price: Optional[float] = Query(None),
     max_price: Optional[float] = Query(None),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
 ):
     """
     Public — list all approved + active properties that have at least one
     active, available room. Optionally filter by city, type, gender, room type,
-    and price range.
+    and price range. Supports cursor-free page/limit pagination.
+
+    Response shape:
+        {
+            "items":  [...],   # properties for this page
+            "total":  N,       # total matching properties (after all filters)
+            "page":   N,       # current page (1-based, clamped to valid range)
+            "limit":  N,       # page size used
+            "pages":  N,       # total number of pages
+        }
     """
     db = get_db()
 
@@ -72,7 +87,7 @@ async def list_listings(
     property_ids = [str(p["id"]) for p in properties]
     prop_images_map = _fetch_images_map(db, property_ids, "PROPERTY")
 
-    # ── 3. Filter + enrich each property ────────────────────────────────────────
+    # ── 3. Filter + enrich each property ──────────────────────────────────────
     output = []
     for prop in properties:
         rooms = prop.pop("rooms", []) or []
@@ -105,7 +120,20 @@ async def list_listings(
             "cover_image": primary["image_url"] if primary else None,
         })
 
-    return output
+    # ── 4. Paginate ────────────────────────────────────────────────────────────
+    total = len(output)
+    pages = max(1, math.ceil(total / limit))
+    page = min(page, pages)           # clamp: never return an empty page
+    offset = (page - 1) * limit
+    items = output[offset: offset + limit]
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "pages": pages,
+    }
 
 
 @router.get("/{property_id}")

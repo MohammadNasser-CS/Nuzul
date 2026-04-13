@@ -249,6 +249,8 @@ export default {
         cancel: 'Cancel',
         error: 'Failed to save room. Please try again.',
         bedsError: 'Available beds cannot exceed total beds.',
+        invalidPrice: 'Please enter a valid price greater than 0.',
+        invalidBeds: 'Please enter a valid number of beds (min 1).',
       },
     },
     success: {
@@ -258,6 +260,11 @@ export default {
       addAnother: 'Add another',
       goToDashboard: 'Go to dashboard',
     },
+  },
+  pagination: {
+    prev: 'Previous page',
+    next: 'Next page',
+    pageOf: 'Page {{page}} of {{total}}',
   },
   enums: {
     role: {

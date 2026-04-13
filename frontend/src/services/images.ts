@@ -15,9 +15,9 @@ export const imagesService = {
       formData.append('is_primary', String(params.is_primary))
     }
     formData.append('file', params.file)
-    return api.post<PropertyImage>('/images/', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    // Do NOT set Content-Type manually — browser/axios must set it with the
+    // correct multipart boundary, otherwise the server cannot parse the body.
+    return api.post<PropertyImage>('/images/', formData)
   },
 
   delete: (id: string) =>
