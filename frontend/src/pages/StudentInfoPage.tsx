@@ -210,7 +210,7 @@ export default function StudentInfoPage() {
                   key={value}
                   type="button"
                   onClick={() => set("preferred_room_type", value)}
-                  className={`text-left rounded-lg border-2 px-3 py-2.5 text-xs transition-all ${
+                  className={`text-start rounded-lg border-2 px-3 py-2.5 text-xs transition-all ${
                     form.preferred_room_type === value
                       ? "border-brand-600 bg-brand-50"
                       : "border-gray-200 hover:border-gray-300"

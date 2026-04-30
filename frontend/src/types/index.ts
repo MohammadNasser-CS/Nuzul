@@ -1,10 +1,41 @@
+// ── Shared enums ──────────────────────────────────────────────────────────────
+/** Mirrors backend UniversityName enum — single source of truth for both
+ *  student profiles and property nearby_university field. */
+export type UniversityName =
+  | 'An-Najah National University'
+// | 'Birzeit University'
+// | 'Palestine Polytechnic University'
+// | 'Al-Quds University'
+// | 'Arab American University'
+// | 'Hebron University'
+// | 'Bethlehem University'
+// | 'Al-Azhar University Gaza'
+// | 'Islamic University of Gaza'
+// | 'Al-Quds Open University'
+// | 'Palestine Technical University - Kadoorie'
+
+/** All university names as a const array — use for dropdowns. */
+export const UNIVERSITY_NAMES: UniversityName[] = [
+  'An-Najah National University',
+  // 'Birzeit University',
+  // 'Palestine Polytechnic University',
+  // 'Al-Quds University',
+  // 'Arab American University',
+  // 'Hebron University',
+  // 'Bethlehem University',
+  // 'Al-Azhar University Gaza',
+  // 'Islamic University of Gaza',
+  // 'Al-Quds Open University',
+  // 'Palestine Technical University - Kadoorie',
+]
+
 // ── User ─────────────────────────────────────────────────────────────────────
 export interface StudentProfile {
   id: string
   user_id: string
   date_of_birth: string
   gender: 'MALE' | 'FEMALE'
-  university_name: string
+  university_name: UniversityName
   college: string
   degree: 'Diploma' | 'Bachelor' | 'Master' | 'Doctorate'
   specialization: string
@@ -38,7 +69,7 @@ export interface CompleteProfilePayload {
 export interface CompleteStudentProfilePayload {
   date_of_birth: string
   gender: 'MALE' | 'FEMALE'
-  university_name: 'An-Najah National University'
+  university_name: UniversityName
   college: string
   degree: 'Diploma' | 'Bachelor' | 'Master' | 'Doctorate'
   specialization: string
@@ -100,6 +131,8 @@ export interface Property {
   landlord_id: string
   title: string
   description: string | null
+  /** Landlord's brand/portfolio name, e.g. "إسكان الريان" */
+  group_name: string | null
   building_name: string | null
   building_number: string | null
   floor_number: number | null
@@ -109,6 +142,8 @@ export interface Property {
   longitude: number
   google_place_id: string | null
   formatted_address: string | null
+  /** Nearest university — validated against UniversityName enum */
+  nearby_university: UniversityName | null
   property_type: 'APARTMENT' | 'HOUSE' | 'STUDIO'
   gender_preference: 'MALE' | 'FEMALE' | 'ANY'
   has_gas: boolean
@@ -131,6 +166,7 @@ export interface Property {
 export interface PropertyCreate {
   title: string
   description?: string
+  group_name?: string
   building_name?: string
   building_number?: string
   floor_number?: number
@@ -140,6 +176,7 @@ export interface PropertyCreate {
   longitude: number
   google_place_id?: string
   formatted_address?: string
+  nearby_university?: UniversityName
   property_type: 'APARTMENT' | 'HOUSE' | 'STUDIO'
   gender_preference?: 'MALE' | 'FEMALE' | 'ANY'
   has_gas?: boolean
@@ -165,6 +202,90 @@ export interface Booking {
 export type BookingCreate = Pick<Booking, 'property_id' | 'move_in_date' | 'move_out_date' | 'message'>
 export type BookingUpdate = Partial<Pick<Booking, 'status' | 'move_out_date'>>
 
+// ── Inquiries ─────────────────────────────────────────────────────────────────
+export type InquiryStatus = 'PENDING' | 'CONTACTED' | 'BOOKED' | 'CANCELLED'
+
+export interface Inquiry {
+  id: string
+  student_id: string
+  room_id: string
+  property_id: string
+  // Contact info snapshot (captured at creation time)
+  student_name: string
+  student_phone: string
+  landlord_name: string
+  landlord_phone: string
+  message: string | null
+  status: InquiryStatus
+  handled_by: string | null
+  handled_at: string | null
+  created_at: string
+  // Enriched fields (attached by backend _enrich helper)
+  room?: { id: string; room_type: string; price_per_bed: string } | null
+  property?: { id: string; title: string; city: string } | null
+}
+
+export interface InquiryCreate {
+  room_id: string
+  message?: string
+}
+
+export interface InquiryStatusUpdate {
+  status: InquiryStatus
+}
+
+/** Shape returned by GET /admin/inquiries */
+export interface InquiryListResponse {
+  data: Inquiry[]
+  counts: Record<InquiryStatus, number>
+}
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+export interface AdminDashboardStats {
+  total_users: number
+  active_users: number
+  total_students: number
+  total_landlords: number
+  total_properties: number
+  pending_properties: number
+  approved_properties: number
+  rejected_properties: number
+  total_rooms: number
+  total_inquiries: number
+  pending_inquiries: number
+  contacted_inquiries: number
+  booked_inquiries: number
+  cancelled_inquiries: number
+}
+
+/** Property as returned by admin endpoints — includes landlord contact fields. */
+export interface AdminProperty extends Property {
+  landlord_name: string | null
+  landlord_phone: string | null
+  landlord_email: string | null
+}
+
+/** User as returned by admin endpoints — includes derived counts and role-specific sub-records. */
+export interface AdminUser {
+  id: string
+  supabase_user_id: string
+  email: string
+  full_name: string | null
+  phone_number: string | null
+  role: 'STUDENT' | 'LANDLORD' | 'ADMIN'
+  is_active: boolean
+  is_verified: boolean
+  created_at: string
+  updated_at: string
+  property_count: number
+  inquiry_count: number
+  // LANDLORD detail
+  properties?: AdminProperty[]
+  // STUDENT detail
+  student_profile?: StudentProfile | null
+  inquiries?: Inquiry[]
+}
+
 // ── Filters & Pagination ──────────────────────────────────────────────────────
 export interface ListingFilters {
   city?: string
@@ -173,6 +294,8 @@ export interface ListingFilters {
   room_type?: Room['room_type']
   min_price?: number
   max_price?: number
+  nearby_university?: UniversityName
+  group_name?: string
 }
 
 /** Shape returned by GET /listings (paginated) */

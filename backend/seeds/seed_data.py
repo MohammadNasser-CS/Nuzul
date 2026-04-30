@@ -9,9 +9,10 @@ Usage (run from the /backend directory):
 What this creates:
     • 7  user_profiles  (1 admin, 3 landlords, 3 students)
     • 3  student_profiles
-    • 6  properties     (4 APPROVED, 2 PENDING)
+    • 6  properties     (4 APPROVED, 2 PENDING) — with group_name & nearby_university
     • 16 rooms          (mix of SINGLE / SHARED / STUDIO)
     • 26 images         (property cover + gallery + room images)
+    • 5  inquiries      (mix of PENDING / CONTACTED / BOOKED / CANCELLED)
 
 Note:
     Seed users have fixed fake supabase_user_ids.
@@ -156,10 +157,12 @@ def _properties() -> list[dict]:
     khalil_id  = _ids["landlord_khalil"]
 
     return [
-        # -- Ahmad — Nablus -------------------------------------------------
+        # -- Ahmad — Nablus  (brand: إسكان الكريم) ─────────────────────────
         {
             "_key": "prop_najah_apt",
             "landlord_id": ahmad_id,
+            "group_name": "إسكان الكريم",
+            "nearby_university": "An-Najah National University",
             "title": "شقة مفروشة قريبة من جامعة النجاح",
             "description": (
                 "شقة مفروشة بالكامل تقع على بُعد دقيقتين سيرًا من بوابة جامعة النجاح الوطنية. "
@@ -188,6 +191,8 @@ def _properties() -> list[dict]:
         {
             "_key": "prop_rafidya_house",
             "landlord_id": ahmad_id,
+            "group_name": "إسكان الكريم",
+            "nearby_university": "An-Najah National University",
             "title": "بيت طلابي واسع في رفيديا",
             "description": (
                 "بيت مستقل في حي رفيديا الهادئ. يضم ثلاث غرف، صالة، ومطبخًا كاملًا. "
@@ -214,10 +219,12 @@ def _properties() -> list[dict]:
             "verified_at": "2025-01-15T09:00:00+00:00",
         },
 
-        # -- Fatima — Ramallah ----------------------------------------------
+        # -- Fatima — Ramallah  (brand: إسكان البركات) ─────────────────────
         {
             "_key": "prop_ramallah_studio",
             "landlord_id": fatima_id,
+            "group_name": "إسكان البركات",
+            "nearby_university": None,
             "title": "استوديو عصري في قلب رام الله",
             "description": (
                 "وحدات استوديو حديثة مؤثثة بالكامل في المنطقة التجارية لرام الله. "
@@ -246,6 +253,8 @@ def _properties() -> list[dict]:
         {
             "_key": "prop_birzeit_shared",
             "landlord_id": fatima_id,
+            "group_name": "إسكان البركات",
+            "nearby_university": None,
             "title": "سكن مشترك قرب جامعة بيرزيت",
             "description": (
                 "شقة مشتركة مناسبة لطلاب جامعة بيرزيت. "
@@ -272,10 +281,12 @@ def _properties() -> list[dict]:
             "verified_at": None,
         },
 
-        # -- Khalil — Jenin -------------------------------------------------
+        # -- Khalil — Jenin ─────────────────────────────────────────────────
         {
             "_key": "prop_jenin_affordable",
             "landlord_id": khalil_id,
+            "group_name": None,
+            "nearby_university": None,
             "title": "سكن طلابي اقتصادي في جنين",
             "description": (
                 "سكن طلابي بأسعار معقولة في وسط مدينة جنين. "
@@ -304,6 +315,8 @@ def _properties() -> list[dict]:
         {
             "_key": "prop_jenin_new",
             "landlord_id": khalil_id,
+            "group_name": None,
+            "nearby_university": None,
             "title": "شقة جديدة بتشطيب فاخر في جنين",
             "description": (
                 "شقة حديثة لم تُسكن من قبل، بتشطيب عالي الجودة. "
@@ -558,6 +571,104 @@ def _rooms() -> list[dict]:
     ]
 
 
+def _inquiries() -> list[dict]:
+    """
+    Realistic inquiries between seed students and seed rooms.
+    Covers all four statuses: PENDING / CONTACTED / BOOKED / CANCELLED.
+    """
+    admin_id    = _ids["admin"]
+    mohammed_id = _ids["student_mohammed"]
+    sara_id     = _ids["student_sara"]
+    omar_id     = _ids["student_omar"]
+
+    return [
+        # ── محمد → غرفة مفردة النجاح  (PENDING) ───────────────────────────
+        {
+            "_key": "inq_mohammed_najah_single",
+            "student_id":    mohammed_id,
+            "room_id":       _ids["room_najah_single_a"],
+            "property_id":   _ids["prop_najah_apt"],
+            "student_name":  "محمد صالح",
+            "student_phone": "0591200021",
+            "landlord_name": "أحمد الكريم",
+            "landlord_phone":"0591100011",
+            "message": "أنا طالب في كلية الهندسة، أبحث عن غرفة هادئة للدراسة. هل الغرفة لا تزال متاحة؟",
+            "status": "PENDING",
+            "handled_by": None,
+            "handled_at": None,
+            "created_at": "2025-03-01T10:30:00+00:00",
+        },
+
+        # ── محمد → غرفة مشتركة رفيديا  (PENDING) ──────────────────────────
+        {
+            "_key": "inq_mohammed_rafidya_shared",
+            "student_id":    mohammed_id,
+            "room_id":       _ids["room_rafidya_shared"],
+            "property_id":   _ids["prop_rafidya_house"],
+            "student_name":  "محمد صالح",
+            "student_phone": "0591200021",
+            "landlord_name": "أحمد الكريم",
+            "landlord_phone":"0591100011",
+            "message": "هل يمكن زيارة البيت يوم الجمعة القادم؟ أنا مهتم بالغرفة المشتركة.",
+            "status": "PENDING",
+            "handled_by": None,
+            "handled_at": None,
+            "created_at": "2025-03-05T14:00:00+00:00",
+        },
+
+        # ── سارة → استوديو رام الله  (BOOKED) ───────────────────────────────
+        {
+            "_key": "inq_sara_ramallah_studio",
+            "student_id":    sara_id,
+            "room_id":       _ids["room_ramallah_studio_a"],
+            "property_id":   _ids["prop_ramallah_studio"],
+            "student_name":  "سارة النابلسي",
+            "student_phone": "0591200022",
+            "landlord_name": "فاطمة البركات",
+            "landlord_phone":"0591100012",
+            "message": "أنا طالبة دراسات عليا، أحتاج إلى استوديو هادئ ومستقل. هل يتوفر موقف سيارات؟",
+            "status": "BOOKED",
+            "handled_by": admin_id,
+            "handled_at": "2025-03-04T11:00:00+00:00",
+            "created_at": "2025-03-02T16:00:00+00:00",
+        },
+
+        # ── سارة → غرفة مشتركة النجاح  (CONTACTED) ─────────────────────────
+        {
+            "_key": "inq_sara_najah_shared",
+            "student_id":    sara_id,
+            "room_id":       _ids["room_najah_shared_a"],
+            "property_id":   _ids["prop_najah_apt"],
+            "student_name":  "سارة النابلسي",
+            "student_phone": "0591200022",
+            "landlord_name": "أحمد الكريم",
+            "landlord_phone":"0591100011",
+            "message": None,
+            "status": "CONTACTED",
+            "handled_by": admin_id,
+            "handled_at": "2025-03-11T09:00:00+00:00",
+            "created_at": "2025-03-10T11:00:00+00:00",
+        },
+
+        # ── عمر → غرفة مشتركة جنين  (CANCELLED) ────────────────────────────
+        {
+            "_key": "inq_omar_jenin_shared",
+            "student_id":    omar_id,
+            "room_id":       _ids["room_jenin_shared_a"],
+            "property_id":   _ids["prop_jenin_affordable"],
+            "student_name":  "عمر زيد",
+            "student_phone": "0591200023",
+            "landlord_name": "خليل حسن",
+            "landlord_phone":"0591100013",
+            "message": "أنا طالب ماجستير، أبحث عن سكن لمدة سنة دراسية كاملة.",
+            "status": "CANCELLED",
+            "handled_by": admin_id,
+            "handled_at": "2025-02-25T10:00:00+00:00",
+            "created_at": "2025-02-24T08:00:00+00:00",
+        },
+    ]
+
+
 def _images() -> list[dict]:
     """
     Returns image records.
@@ -724,7 +835,33 @@ def seed():
             _ids[key] = result.data[0]["id"]
             print(f"  ✅ created  room '{key}' ({room['room_type']}, ₪{room['price_per_bed']}/bed)")
 
-    # -- 5. Images ---------------------------------------------------------
+    # -- 5. Patch new property fields (group_name / nearby_university) ------
+    _section("🔄 Patch Properties (group_name / nearby_university)")
+    patch_map = {
+        "prop_najah_apt":       {"group_name": "إسكان الكريم",  "nearby_university": "An-Najah National University"},
+        "prop_rafidya_house":   {"group_name": "إسكان الكريم",  "nearby_university": "An-Najah National University"},
+        "prop_ramallah_studio": {"group_name": "إسكان البركات", "nearby_university": None},
+        "prop_birzeit_shared":  {"group_name": "إسكان البركات", "nearby_university": None},
+        "prop_jenin_affordable":{"group_name": None,             "nearby_university": None},
+        "prop_jenin_new":       {"group_name": None,             "nearby_university": None},
+    }
+    for prop_key, patch in patch_map.items():
+        if prop_key not in _ids:
+            continue
+        prop_id = _ids[prop_key]
+        # Fetch current values
+        cur = db.table("properties").select("group_name, nearby_university").eq("id", prop_id).execute()
+        if not cur.data:
+            continue
+        row = cur.data[0]
+        needs_patch = {k: v for k, v in patch.items() if row.get(k) != v}
+        if needs_patch:
+            db.table("properties").update(needs_patch).eq("id", prop_id).execute()
+            print(f"  ✅ patched   '{prop_key}' → {needs_patch}")
+        else:
+            print(f"  ↪  up-to-date '{prop_key}'")
+
+    # -- 6. Images ---------------------------------------------------------
     _section("🖼️  Images")
     for img in _images():
         entity_key = img.pop("_entity_key")
@@ -744,6 +881,25 @@ def seed():
             primary_tag = " [PRIMARY]" if img.get("is_primary") else ""
             print(f"  ✅ created  image for '{entity_key}'{primary_tag}")
 
+    # -- 7. Inquiries ------------------------------------------------------
+    _section("💬 Inquiries")
+    for inq in _inquiries():
+        key = inq.pop("_key")
+        existing = (
+            db.table("inquiries")
+            .select("id")
+            .eq("student_id", inq["student_id"])
+            .eq("room_id",    inq["room_id"])
+            .execute()
+        )
+        if existing.data:
+            _ids[key] = existing.data[0]["id"]
+            print(f"  ↪  skipped  inquiry '{key}'")
+        else:
+            result = db.table("inquiries").insert(inq).execute()
+            _ids[key] = result.data[0]["id"]
+            print(f"  ✅ created  inquiry '{key}' [{inq['status']}]")
+
     # -- Summary -----------------------------------------------------------
     print("\n" + "="*50)
     print("  ✅  Seed complete!")
@@ -752,9 +908,10 @@ def seed():
     print(f"    • 1 Admin")
     print(f"    • 3 Landlords  (ahmad, fatima, khalil)")
     print(f"    • 3 Students   (mohammed, sara, omar)")
-    print(f"\n  Properties : 6  (4 APPROVED, 2 PENDING)")
-    print(f"  Rooms      : 16")
-    print(f"  Images     : 26  (13 property, 18 room)")
+    print(f"\n  Properties  : 6  (4 APPROVED, 2 PENDING)")
+    print(f"  Rooms       : 16")
+    print(f"  Images      : 26  (13 property, 18 room)")
+    print(f"  Inquiries   : 5   (2 PENDING, 1 CONTACTED, 1 BOOKED, 1 CANCELLED) — all 4 statuses covered")
     print(f"\n  💡 Re-running is safe — existing records are skipped.")
     print()
 

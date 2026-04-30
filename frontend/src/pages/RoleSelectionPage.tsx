@@ -103,7 +103,7 @@ export default function RoleSelectionPage() {
               <button
                 type="button"
                 onClick={() => setSelectedRole("STUDENT")}
-                className={`relative text-left rounded-xl border-2 p-4 transition-all ${
+                className={`relative text-start rounded-xl border-2 p-4 transition-all ${
                   selectedRole === "STUDENT"
                     ? "border-brand-600 bg-brand-50"
                     : "border-gray-200 hover:border-gray-300 bg-white"
@@ -125,7 +125,7 @@ export default function RoleSelectionPage() {
               <button
                 type="button"
                 onClick={() => setSelectedRole("LANDLORD")}
-                className={`relative text-left rounded-xl border-2 p-4 transition-all ${
+                className={`relative text-start rounded-xl border-2 p-4 transition-all ${
                   selectedRole === "LANDLORD"
                     ? "border-brand-600 bg-brand-50"
                     : "border-gray-200 hover:border-gray-300 bg-white"

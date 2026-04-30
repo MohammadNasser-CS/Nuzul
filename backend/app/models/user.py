@@ -25,6 +25,16 @@ class PreferredRoomType(str, Enum):
 
 class UniversityName(str, Enum):
     AN_NAJAH = "An-Najah National University"
+    # BIRZEIT   = "Birzeit University"
+    # PPU       = "Palestine Polytechnic University"
+    # AL_QUDS   = "Al-Quds University"
+    # AAUP      = "Arab American University"
+    # HEBRON    = "Hebron University"
+    # BETHLEHEM = "Bethlehem University"
+    # AL_AZHAR_GAZA = "Al-Azhar University Gaza"
+    # IUG       = "Islamic University of Gaza"
+    # QOU       = "Al-Quds Open University"
+    # PTUK      = "Palestine Technical University - Kadoorie"
 
 
 class Degree(str, Enum):

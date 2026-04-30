@@ -6,7 +6,7 @@ import logging
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.api.routers import auth, bookings
-from app.api.routers import listings, properties, rooms, images
+from app.api.routers import listings, properties, rooms, images, inquiries, landlord, admin
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,6 +52,9 @@ app.include_router(properties.router, prefix="/api/v1")   # /properties    (land
 app.include_router(rooms.router,      prefix="/api/v1")   # /rooms         (landlord + public)
 app.include_router(images.router,     prefix="/api/v1")   # /images        (landlord)
 app.include_router(bookings.router,   prefix="/api/v1")
+app.include_router(inquiries.router,  prefix="/api/v1")   # /inquiries       (student + admin)
+app.include_router(landlord.router,   prefix="/api/v1")   # /landlord/*      (landlord only)
+app.include_router(admin.router,      prefix="/api/v1")   # /admin/*         (admin only)
 
 
 @app.get("/health", tags=["health"])

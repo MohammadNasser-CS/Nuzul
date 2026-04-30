@@ -2,6 +2,7 @@ import math
 from fastapi import APIRouter, HTTPException, Query
 from app.core.database import get_db
 from app.models.property import GenderPreference, PropertyType, RoomType
+from app.models.user import UniversityName
 from typing import Optional
 
 router = APIRouter(prefix="/listings", tags=["listings"])
@@ -46,6 +47,8 @@ async def list_listings(
     room_type: Optional[RoomType] = Query(None),
     min_price: Optional[float] = Query(None),
     max_price: Optional[float] = Query(None),
+    nearby_university: Optional[UniversityName] = Query(None, description="Filter by nearby university"),
+    group_name: Optional[str] = Query(None, description="Filter by landlord brand/group name"),
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
 ):
@@ -79,6 +82,10 @@ async def list_listings(
         query = query.eq("property_type", property_type.value)
     if gender_preference:
         query = query.eq("gender_preference", gender_preference.value)
+    if nearby_university:
+        query = query.eq("nearby_university", nearby_university.value)
+    if group_name:
+        query = query.ilike("group_name", f"%{group_name}%")
 
     result = query.order("created_at", desc=True).execute()
     properties = result.data

@@ -6,9 +6,13 @@ import { ImageGallery } from './ImageGallery'
 interface Props {
   room: Room
   onSelect?: (room: Room) => void
+  /** Called when the student clicks "Contact about this room" */
+  onContact?: (room: Room) => void
+  /** When true, renders a highlight ring (used when deep-linked from admin) */
+  highlighted?: boolean
 }
 
-export function RoomCard({ room, onSelect }: Props) {
+export function RoomCard({ room, onSelect, onContact, highlighted = false }: Props) {
   const { t } = useTranslation()
   const [showGallery, setShowGallery] = useState(false)
   const price = Math.round(parseFloat(room.price_per_bed))
@@ -22,7 +26,13 @@ export function RoomCard({ room, onSelect }: Props) {
   ]
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+    <div
+      className={`rounded-xl overflow-hidden bg-white border transition-all duration-500 ${
+        highlighted
+          ? 'border-brand-400 ring-2 ring-brand-300 ring-offset-2 shadow-lg shadow-brand-100'
+          : 'border-gray-200'
+      }`}
+    >
       {/* Room image strip */}
       {images.length > 0 && (
         <div
@@ -103,6 +113,16 @@ export function RoomCard({ room, onSelect }: Props) {
             className="w-full mt-1 bg-accent-500 hover:bg-accent-600 text-white text-sm font-medium py-2 rounded-lg transition-colors"
           >
             {t('property.selectRoom')}
+          </button>
+        )}
+
+        {onContact && room.is_available && (
+          <button
+            onClick={() => onContact(room)}
+            className="w-full mt-1 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <span>💬</span>
+            {t('inquiry.contactButton')}
           </button>
         )}
       </div>

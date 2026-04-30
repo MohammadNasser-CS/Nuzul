@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth, useProfileGuard } from '@/hooks/useAuth'
-import { propertiesService } from '@/services/properties'
+import { landlordService, type LandlordDashboardStats } from '@/services/landlord'
 import type { Property } from '@/types'
 
 function StatusBadge({ status }: { status: Property['verification_status'] }) {
   const { t } = useTranslation()
   const styles = {
-    PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
+    PENDING:  'bg-amber-50 text-amber-700 border-amber-200',
     APPROVED: 'bg-green-50 text-green-700 border-green-200',
     REJECTED: 'bg-red-50 text-red-700 border-red-200',
   }
@@ -22,19 +22,25 @@ function StatusBadge({ status }: { status: Property['verification_status'] }) {
 function LandlordDashboard() {
   const { t } = useTranslation()
   const [properties, setProperties] = useState<Property[]>([])
-  const [loading, setLoading] = useState(true)
+  const [stats, setStats]           = useState<LandlordDashboardStats | null>(null)
+  const [loading, setLoading]       = useState(true)
 
   useEffect(() => {
-    propertiesService
-      .myProperties()
-      .then((res) => setProperties(res.data))
+    Promise.all([
+      landlordService.myProperties(),
+      landlordService.dashboard(),
+    ])
+      .then(([propRes, statsRes]) => {
+        setProperties(propRes.data)
+        setStats(statsRes.data)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
   return (
     <div className="space-y-6">
-      {/* My Properties */}
+      {/* My Properties header */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-800">{t('dashboard.myProperties')}</h2>
@@ -69,13 +75,18 @@ function LandlordDashboard() {
               const coverImg = p.cover_image ?? p.images?.[0]?.image_url
               const roomCount = p.rooms?.length ?? 0
               return (
-                <div key={p.id} className="flex gap-4 items-start border border-gray-200 rounded-xl p-4 bg-white hover:shadow-sm transition-shadow">
+                <div
+                  key={p.id}
+                  className="flex gap-4 items-start border border-gray-200 rounded-xl p-4 bg-white hover:shadow-sm transition-shadow"
+                >
                   {/* Thumbnail */}
                   <div className="w-16 h-16 rounded-lg bg-gray-100 shrink-0 overflow-hidden">
                     {coverImg ? (
                       <img src={coverImg} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">🏠</div>
+                      <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">
+                        🏠
+                      </div>
                     )}
                   </div>
 
@@ -99,11 +110,17 @@ function LandlordDashboard() {
                   </div>
 
                   {/* Actions */}
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex flex-col gap-1.5 items-end">
+                    <Link
+                      to={`/landlord/properties/${p.id}/rooms`}
+                      className="text-xs bg-brand-50 hover:bg-brand-100 text-brand-700 font-medium px-3 py-1 rounded-lg transition-colors"
+                    >
+                      {t('dashboard.manage')}
+                    </Link>
                     {p.verification_status === 'APPROVED' && (
                       <Link
                         to={`/listings/${p.id}`}
-                        className="text-xs text-brand-600 hover:underline"
+                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
                       >
                         {t('dashboard.view')}
                       </Link>
@@ -116,23 +133,37 @@ function LandlordDashboard() {
         )}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="border border-gray-200 rounded-xl p-4 bg-white text-center">
-          <p className="text-2xl font-bold text-gray-900">{properties.length}</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {loading ? '—' : (stats?.total_properties ?? properties.length)}
+          </p>
           <p className="text-xs text-gray-400 mt-1">{t('dashboard.totalProperties')}</p>
         </div>
         <div className="border border-gray-200 rounded-xl p-4 bg-white text-center">
           <p className="text-2xl font-bold text-green-600">
-            {properties.filter((p) => p.verification_status === 'APPROVED').length}
+            {loading ? '—' : properties.filter((p) => p.verification_status === 'APPROVED').length}
           </p>
           <p className="text-xs text-gray-400 mt-1">{t('dashboard.approvedProperties')}</p>
         </div>
         <div className="border border-gray-200 rounded-xl p-4 bg-white text-center">
           <p className="text-2xl font-bold text-amber-600">
-            {properties.filter((p) => p.verification_status === 'PENDING').length}
+            {loading ? '—' : properties.filter((p) => p.verification_status === 'PENDING').length}
           </p>
           <p className="text-xs text-gray-400 mt-1">{t('dashboard.pendingProperties')}</p>
+        </div>
+        <div className="border border-gray-200 rounded-xl p-4 bg-white text-center">
+          <p className="text-2xl font-bold text-blue-600">
+            {loading ? '—' : (stats?.total_rooms ?? '—')}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">{t('dashboard.totalRooms')}</p>
+        </div>
+        <div className="border border-gray-200 rounded-xl p-4 bg-white text-center">
+          <p className="text-2xl font-bold text-purple-600">
+            {loading ? '—' : (stats?.total_inquiries ?? '—')}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">{t('dashboard.totalInquiries')}</p>
         </div>
       </div>
     </div>
@@ -176,7 +207,9 @@ export default function DashboardPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">
-          {user?.full_name ? t('dashboard.welcomeNamed', { name: user.full_name }) : t('dashboard.welcome')}
+          {user?.full_name
+            ? t('dashboard.welcomeNamed', { name: user.full_name })
+            : t('dashboard.welcome')}
         </h1>
         <p className="text-gray-500 text-sm mt-1">
           {t('dashboard.role')}: <span className="font-medium text-gray-700">{roleLabel}</span>
@@ -184,7 +217,7 @@ export default function DashboardPage() {
       </div>
 
       {user?.role === 'LANDLORD' && <LandlordDashboard />}
-      {user?.role === 'STUDENT' && <StudentDashboard />}
+      {user?.role === 'STUDENT'  && <StudentDashboard />}
     </div>
   )
 }

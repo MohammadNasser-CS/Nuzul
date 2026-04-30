@@ -3,11 +3,15 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional
 from app.models.property import PropertyType, GenderPreference, VerificationStatus
+from app.models.user import UniversityName
 
 
 class PropertyCreate(BaseModel):
     title: str
     description: Optional[str] = None
+
+    # Landlord branding (e.g. "إسكان الريان") — groups all properties under one brand
+    group_name: Optional[str] = None
 
     # Building
     building_name: Optional[str] = None
@@ -21,6 +25,9 @@ class PropertyCreate(BaseModel):
     longitude: float
     google_place_id: Optional[str] = None
     formatted_address: Optional[str] = None
+
+    # Nearby university — validated against the shared UniversityName enum
+    nearby_university: Optional[UniversityName] = None
 
     # Classification
     property_type: PropertyType
@@ -39,6 +46,8 @@ class PropertyUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
 
+    group_name: Optional[str] = None
+
     building_name: Optional[str] = None
     building_number: Optional[str] = None
     floor_number: Optional[int] = None
@@ -49,6 +58,8 @@ class PropertyUpdate(BaseModel):
     longitude: Optional[float] = None
     google_place_id: Optional[str] = None
     formatted_address: Optional[str] = None
+
+    nearby_university: Optional[UniversityName] = None
 
     property_type: Optional[PropertyType] = None
     gender_preference: Optional[GenderPreference] = None
@@ -68,6 +79,8 @@ class PropertyRead(BaseModel):
     title: str
     description: Optional[str] = None
 
+    group_name: Optional[str] = None
+
     building_name: Optional[str] = None
     building_number: Optional[str] = None
     floor_number: Optional[int] = None
@@ -78,6 +91,8 @@ class PropertyRead(BaseModel):
     longitude: float
     google_place_id: Optional[str] = None
     formatted_address: Optional[str] = None
+
+    nearby_university: Optional[UniversityName] = None
 
     property_type: PropertyType
     gender_preference: GenderPreference

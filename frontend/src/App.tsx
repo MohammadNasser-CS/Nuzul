@@ -8,10 +8,16 @@ import RoleSelectionPage from './pages/RoleSelectionPage'
 import StudentInfoPage from './pages/StudentInfoPage'
 import DashboardPage from './pages/DashboardPage'
 import AddPropertyPage from './pages/landlord/AddPropertyPage'
+import ManageRoomsPage from './pages/landlord/ManageRoomsPage'
+import AdminInquiriesPage from './pages/admin/AdminInquiriesPage'
+import AdminDashboardPage from './pages/admin/AdminDashboardPage'
+import AdminPropertiesPage from './pages/admin/AdminPropertiesPage'
+import AdminUsersPage from './pages/admin/AdminUsersPage'
 import { Navbar } from './components/layout/Navbar'
 import { useAuthBootstrap } from './hooks/useAuth'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { LandlordRoute } from './components/layout/LandlordRoute'
+import { AdminRoute } from './components/layout/AdminRoute'
 
 function AppRoutes() {
   useAuthBootstrap()
@@ -37,7 +43,16 @@ function AppRoutes() {
 
         {/* Landlord only */}
         <Route element={<LandlordRoute />}>
-          <Route path="/landlord/add-property" element={<AddPropertyPage />} />
+          <Route path="/landlord/add-property"            element={<AddPropertyPage />} />
+          <Route path="/landlord/properties/:id/rooms"    element={<ManageRoomsPage />} />
+        </Route>
+
+        {/* Admin only */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin/dashboard"   element={<AdminDashboardPage />} />
+          <Route path="/admin/properties"  element={<AdminPropertiesPage />} />
+          <Route path="/admin/users"       element={<AdminUsersPage />} />
+          <Route path="/admin/inquiries"   element={<AdminInquiriesPage />} />
         </Route>
 
         {/* Fallback */}

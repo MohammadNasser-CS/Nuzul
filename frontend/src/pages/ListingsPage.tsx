@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { listingsService, PAGE_SIZE } from '@/services/properties'
 import { PropertyCard } from '@/components/property/PropertyCard'
+import { UNIVERSITY_NAMES } from '@/types'
 import type { Property, ListingFilters } from '@/types'
 
 const PROPERTY_TYPES = ['APARTMENT', 'HOUSE', 'STUDIO'] as const
@@ -18,7 +19,8 @@ function Pagination({
   totalPages: number
   onPage: (p: number) => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const isRTL = i18n.dir() === 'rtl'
   if (totalPages <= 1) return null
 
   // Show: first, last, current ±1, and ellipsis for gaps
@@ -39,7 +41,7 @@ function Pagination({
         className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         aria-label={t('pagination.prev')}
       >
-        ‹
+        {isRTL ? '›' : '‹'}
       </button>
 
       {pages.map((p, i) =>
@@ -68,7 +70,7 @@ function Pagination({
         className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         aria-label={t('pagination.next')}
       >
-        ›
+        {isRTL ? '‹' : '›'}
       </button>
     </div>
   )
@@ -266,6 +268,37 @@ export default function ListingsPage() {
                 value={draft.max_price ?? ''}
                 onChange={(e) => setDraftField('max_price', e.target.value ? Number(e.target.value) : undefined)}
                 placeholder="∞"
+                className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+              />
+            </div>
+
+            {/* University */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                {t('listings.filters.university')}
+              </label>
+              <select
+                value={draft.nearby_university ?? ''}
+                onChange={(e) => setDraftField('nearby_university', e.target.value as typeof draft.nearby_university)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+              >
+                <option value="">{t('listings.filters.allUniversities')}</option>
+                {UNIVERSITY_NAMES.map((u) => (
+                  <option key={u} value={u}>{t(`enums.university.${u}`)}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Housing brand / group */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                {t('listings.filters.groupName')}
+              </label>
+              <input
+                type="text"
+                value={draft.group_name ?? ''}
+                onChange={(e) => setDraftField('group_name', e.target.value)}
+                placeholder={t('listings.filters.groupNamePlaceholder')}
                 className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
               />
             </div>

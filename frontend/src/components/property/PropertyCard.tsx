@@ -55,10 +55,17 @@ export function PropertyCard({ property }: Props) {
 
       {/* Body */}
       <div className="p-4 space-y-1">
-        {/* Type badge */}
-        <span className="inline-block text-xs font-medium bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full">
-          {t(`enums.propertyType.${property.property_type}`)}
-        </span>
+        {/* Badges row: type + group name */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="inline-block text-xs font-medium bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full">
+            {t(`enums.propertyType.${property.property_type}`)}
+          </span>
+          {property.group_name && (
+            <span className="inline-block text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full truncate max-w-[140px]">
+              🏢 {property.group_name}
+            </span>
+          )}
+        </div>
 
         <h3 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 mt-1">
           {property.title}
@@ -68,6 +75,13 @@ export function PropertyCard({ property }: Props) {
           <span>📍</span>
           {property.city}
         </p>
+
+        {property.nearby_university && (
+          <p className="text-xs text-indigo-600 flex items-center gap-1">
+            <span>🎓</span>
+            <span className="truncate">{t(`enums.university.${property.nearby_university}`, { defaultValue: property.nearby_university })}</span>
+          </p>
+        )}
 
         {priceRange && (
           <p className="text-brand-600 font-bold text-sm pt-1">

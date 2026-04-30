@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { listingsService } from '@/services/properties'
 import { ImageGallery } from '@/components/property/ImageGallery'
 import { RoomCard } from '@/components/property/RoomCard'
 import { StaticMapView } from '@/components/map/MapPicker'
-import type { Property } from '@/types'
+import { InquiryModal } from '@/components/inquiry/InquiryModal'
+import { useAuth } from '@/hooks/useAuth'
+import type { Property, Room } from '@/types'
 
 function AmenityBadge({ active, label }: { active: boolean; label: string }) {
   return (
@@ -22,11 +24,17 @@ function AmenityBadge({ active, label }: { active: boolean; label: string }) {
 
 export default function PropertyDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { t } = useTranslation()
+  const [searchParams] = useSearchParams()
+  const highlightRoomId = searchParams.get('room') ?? null
+  const { t, i18n } = useTranslation()
+  const bk = i18n.dir() === 'rtl' ? '→' : '←'
+  const { user } = useAuth()
   const [property, setProperty] = useState<Property | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showGallery, setShowGallery] = useState(false)
+  const [contactRoom, setContactRoom] = useState<Room | null>(null)
+  const highlightRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!id) return
@@ -37,6 +45,17 @@ export default function PropertyDetailPage() {
       .catch(() => setError(t('property.notFound')))
       .finally(() => setLoading(false))
   }, [id, t])
+
+  // Scroll to highlighted room once the property (and thus rooms) have loaded
+  useEffect(() => {
+    if (!highlightRoomId || !property || !highlightRef.current) return
+    const el = highlightRef.current
+    // Small delay so the DOM has fully painted the card
+    const timer = setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [highlightRoomId, property])
 
   if (loading) {
     return (
@@ -54,7 +73,7 @@ export default function PropertyDetailPage() {
         <p className="text-5xl mb-4">🏚</p>
         <p className="text-gray-500">{error ?? t('property.notFound')}</p>
         <Link to="/listings" className="mt-4 inline-block text-brand-600 hover:underline text-sm">
-          ← {t('listings.title')}
+          {bk} {t('listings.title')}
         </Link>
       </div>
     )
@@ -135,12 +154,23 @@ export default function PropertyDetailPage() {
               >
                 {t(`enums.genderPref.${property.gender_preference}`)}
               </span>
+              {property.group_name && (
+                <span className="text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full">
+                  🏢 {property.group_name}
+                </span>
+              )}
             </div>
             <h1 className="text-2xl font-bold text-gray-900">{property.title}</h1>
             <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
               <span>📍</span>
               {property.formatted_address ?? `${property.city}, ${property.country}`}
             </p>
+            {property.nearby_university && (
+              <p className="text-indigo-600 text-sm mt-1 flex items-center gap-1">
+                <span>🎓</span>
+                {t(`enums.university.${property.nearby_university}`, { defaultValue: property.nearby_university })}
+              </p>
+            )}
           </div>
 
           {/* Description */}
@@ -177,9 +207,18 @@ export default function PropertyDetailPage() {
               <p className="text-sm text-gray-400">{t('property.noRooms')}</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {allRooms.map((room) => (
-                  <RoomCard key={room.id} room={room} />
-                ))}
+                {allRooms.map((room) => {
+                  const isHighlighted = room.id === highlightRoomId
+                  return (
+                    <div key={room.id} ref={isHighlighted ? highlightRef : null}>
+                      <RoomCard
+                        room={room}
+                        highlighted={isHighlighted}
+                        onContact={user?.role === 'STUDENT' ? setContactRoom : undefined}
+                      />
+                    </div>
+                  )
+                })}
               </div>
             )}
           </section>
@@ -225,6 +264,14 @@ export default function PropertyDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Inquiry modal — only rendered when a student clicks Contact */}
+      {contactRoom && (
+        <InquiryModal
+          room={contactRoom}
+          onClose={() => setContactRoom(null)}
+        />
+      )}
     </div>
   )
 }
