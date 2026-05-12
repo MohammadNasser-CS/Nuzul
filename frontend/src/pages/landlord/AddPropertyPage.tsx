@@ -7,7 +7,7 @@ import { MapPicker } from '@/components/map/MapPicker'
 import { ImageUpload } from '@/components/property/ImageUpload'
 import type { MapLocation } from '@/components/map/MapPicker'
 import { UNIVERSITY_NAMES } from '@/types'
-import type { Property, PropertyCreate, PropertyImage, Room, RoomCreate, UniversityName } from '@/types'
+import type { Property, PropertyCreate, PropertyImage, Room, UniversityName } from '@/types'
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
 function StepBar({ current, total, labels }: { current: number; total: number; labels: string[] }) {
