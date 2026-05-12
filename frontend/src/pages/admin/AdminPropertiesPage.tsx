@@ -116,7 +116,7 @@ function PropertyCard({ property: p, onApprove, onReject, approving }: PropertyC
   const { t } = useTranslation()
 
   const cover = p.images?.find(i => i.is_primary)?.image_url ?? p.images?.[0]?.image_url
-  const roomCount  = p.rooms?.length ?? 0
+  const roomCount = p.rooms?.length ?? 0
   const imageCount = p.images?.length ?? 0
   const canApprove = roomCount > 0 && imageCount > 0
 
@@ -129,7 +129,7 @@ function PropertyCard({ property: p, onApprove, onReject, approving }: PropertyC
     : undefined
 
   const statusColors: Record<string, string> = {
-    PENDING:  'bg-yellow-100 text-yellow-700',
+    PENDING: 'bg-yellow-100 text-yellow-700',
     APPROVED: 'bg-green-100  text-green-700',
     REJECTED: 'bg-red-100    text-red-700',
   }
@@ -137,7 +137,7 @@ function PropertyCard({ property: p, onApprove, onReject, approving }: PropertyC
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col sm:flex-row shadow-sm hover:shadow-md transition-shadow">
       {/* Cover image */}
-      <div className="sm:w-40 h-36 sm:h-auto flex-shrink-0 bg-gray-100">
+      <div className="sm:w-40 h-36 sm:h-auto shrink-0 bg-gray-100">
         {cover ? (
           <img src={cover} alt={p.title} className="w-full h-full object-cover" />
         ) : (
@@ -150,7 +150,7 @@ function PropertyCard({ property: p, onApprove, onReject, approving }: PropertyC
         {/* Title + status */}
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">{p.title}</h3>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${statusColors[p.verification_status]}`}>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${statusColors[p.verification_status]}`}>
             {t(`enums.propertyStatus.${p.verification_status}`)}
           </span>
         </div>
@@ -208,7 +208,7 @@ function PropertyCard({ property: p, onApprove, onReject, approving }: PropertyC
               {approving ? '…' : t('admin.properties.approve')}
             </button>
             {approveTooltip && (
-              <div className="absolute bottom-full mb-1 start-0 w-48 bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 hidden group-hover:block z-10 pointer-events-none">
+              <div className="absolute bottom-full mb-1 inset-s-0 w-48 bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 hidden group-hover:block z-10 pointer-events-none">
                 {approveTooltip}
               </div>
             )}
@@ -275,8 +275,8 @@ export default function AdminPropertiesPage() {
 
   // Derived counts from loaded data
   const counts = {
-    ALL:      properties.length,
-    PENDING:  properties.filter(p => p.verification_status === 'PENDING').length,
+    ALL: properties.length,
+    PENDING: properties.filter(p => p.verification_status === 'PENDING').length,
     APPROVED: properties.filter(p => p.verification_status === 'APPROVED').length,
     REJECTED: properties.filter(p => p.verification_status === 'REJECTED').length,
   }
@@ -310,8 +310,8 @@ export default function AdminPropertiesPage() {
 
   const tabs: Tab[] = ['PENDING', 'ALL', 'APPROVED', 'REJECTED']
   const tabLabels: Record<Tab, string> = {
-    ALL:      t('admin.properties.all'),
-    PENDING:  t('admin.properties.pending'),
+    ALL: t('admin.properties.all'),
+    PENDING: t('admin.properties.pending'),
     APPROVED: t('admin.properties.approved'),
     REJECTED: t('admin.properties.rejected'),
   }
@@ -326,17 +326,15 @@ export default function AdminPropertiesPage() {
           <button
             key={tab}
             onClick={() => switchTab(tab)}
-            className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === tab
+            className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === tab
                 ? 'border-brand-600 text-brand-700'
                 : 'border-transparent text-gray-500 hover:text-gray-800'
-            }`}
+              }`}
           >
             {tabLabels[tab]}
             {counts[tab] > 0 && (
-              <span className={`ms-1.5 text-xs px-1.5 py-0.5 rounded-full ${
-                activeTab === tab ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-500'
-              }`}>
+              <span className={`ms-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-500'
+                }`}>
                 {counts[tab]}
               </span>
             )}
