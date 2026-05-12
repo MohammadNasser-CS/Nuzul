@@ -9,9 +9,9 @@ Usage (run from the /backend directory):
 What this creates:
     • 7  user_profiles  (1 admin, 3 landlords, 3 students)
     • 3  student_profiles
-    • 6  properties     (4 APPROVED, 2 PENDING) — with group_name & nearby_university
-    • 16 rooms          (mix of SINGLE / SHARED / STUDIO)
-    • 26 images         (property cover + gallery + room images)
+    • 7  properties     (4 APPROVED, 2 PENDING, 1 REJECTED) — with group_name & nearby_university
+    • 15 rooms          (mix of SINGLE / SHARED / STUDIO)
+    • 33 images         (14 property cover/gallery + 19 room images)
     • 5  inquiries      (mix of PENDING / CONTACTED / BOOKED / CANCELLED)
 
 Note:
@@ -279,6 +279,45 @@ def _properties() -> list[dict]:
             "verification_status": "PENDING",
             "verified_by": None,
             "verified_at": None,
+        },
+
+        # -- Khalil — Nablus  (REJECTED — bad images) ──────────────────────────
+        {
+            "_key": "prop_nablus_rejected",
+            "landlord_id": khalil_id,
+            "group_name": None,
+            "nearby_university": "An-Najah National University",
+            "title": "شقة في العمارية قرب جامعة النجاح",
+            "description": (
+                "شقة بثلاث غرف نوم تقع في حي العمارية قرب الجامعة. "
+                "تم رفضها بسبب جودة الصور المرفوعة."
+            ),
+            "building_name": "بناية الفجر",
+            "building_number": "22",
+            "floor_number": 1,
+            "city": "Nablus",
+            "country": "Palestine",
+            "latitude": 32.2235,
+            "longitude": 35.2590,
+            "formatted_address": "حي العمارية، نابلس",
+            "google_place_id": None,
+            "property_type": "APARTMENT",
+            "gender_preference": "MALE",
+            "has_gas": True,
+            "has_electricity": True,
+            "has_water": True,
+            "has_internet": False,
+            "is_active": True,
+            "verification_status": "REJECTED",
+            "verified_by": None,
+            "verified_at": None,
+            "rejected_by": admin_id,
+            "rejected_at": "2025-01-25T14:00:00+00:00",
+            "rejection_reason": (
+                "الصور المرفوعة لا تعكس الحالة الفعلية للعقار وجودتها منخفضة. "
+                "يرجى رفع صور أوضح وأكثر تفصيلاً ثم إعادة تقديم الطلب."
+            ),
+            "admin_notes": "المالك جديد على المنصة — يحتاج توجيهاً حول متطلبات الصور.",
         },
 
         # -- Khalil — Jenin ─────────────────────────────────────────────────
@@ -552,6 +591,23 @@ def _rooms() -> list[dict]:
             "is_active": True,
         },
 
+        # -- prop_nablus_rejected (REJECTED property) ----------------------
+        {
+            "_key": "room_rejected_single",
+            "_property": "prop_nablus_rejected",
+            "description": "غرفة مفردة بحمام خاص، الصور المرفوعة كانت غير واضحة.",
+            "price_per_bed": 950,
+            "available_from": "2025-02-01",
+            "room_type": "SINGLE",
+            "number_of_beds": 1,
+            "available_beds": 1,
+            "has_internal_bathroom": True,
+            "has_internal_balcony": False,
+            "has_ac": False,
+            "has_office": True,
+            "is_active": True,
+        },
+
         # -- prop_jenin_new (PENDING property) -----------------------------
         {
             "_key": "room_jenin_new_single",
@@ -715,6 +771,8 @@ def _images() -> list[dict]:
 
     prop_img("prop_jenin_new",       "jeninnew1",is_primary=True)
 
+    prop_img("prop_nablus_rejected", "nablus_rej1", is_primary=True)
+
     # -- Room images --------------------------------------------------------
     room_img("room_najah_single_a",   "room_ns1")
     room_img("room_najah_single_a",   "room_ns2")
@@ -738,6 +796,8 @@ def _images() -> list[dict]:
     room_img("room_jenin_shared_b",   "room_jb1")
     room_img("room_jenin_new_single", "room_jn1")
     room_img("room_jenin_new_single", "room_jn2")
+
+    room_img("room_rejected_single",  "room_rej1")
 
     return imgs
 
@@ -836,6 +896,10 @@ def seed():
             print(f"  ✅ created  room '{key}' ({room['room_type']}, ₪{room['price_per_bed']}/bed)")
 
     # -- 5. Patch new property fields (group_name / nearby_university) ------
+    # NOTE: These fields are already included in the INSERT payloads above,
+    # so this step is a no-op for fresh seeds.  It is kept for backward
+    # compatibility: if the database was seeded before these columns existed,
+    # running the script again will patch the existing rows automatically.
     _section("🔄 Patch Properties (group_name / nearby_university)")
     patch_map = {
         "prop_najah_apt":       {"group_name": "إسكان الكريم",  "nearby_university": "An-Najah National University"},
@@ -844,6 +908,7 @@ def seed():
         "prop_birzeit_shared":  {"group_name": "إسكان البركات", "nearby_university": None},
         "prop_jenin_affordable":{"group_name": None,             "nearby_university": None},
         "prop_jenin_new":       {"group_name": None,             "nearby_university": None},
+        "prop_nablus_rejected": {"group_name": None,             "nearby_university": None},
     }
     for prop_key, patch in patch_map.items():
         if prop_key not in _ids:
@@ -908,9 +973,9 @@ def seed():
     print(f"    • 1 Admin")
     print(f"    • 3 Landlords  (ahmad, fatima, khalil)")
     print(f"    • 3 Students   (mohammed, sara, omar)")
-    print(f"\n  Properties  : 6  (4 APPROVED, 2 PENDING)")
-    print(f"  Rooms       : 16")
-    print(f"  Images      : 26  (13 property, 18 room)")
+    print(f"\n  Properties  : 7  (4 APPROVED, 2 PENDING, 1 REJECTED)")
+    print(f"  Rooms       : 15")
+    print(f"  Images      : 33  (14 property, 19 room)")
     print(f"  Inquiries   : 5   (2 PENDING, 1 CONTACTED, 1 BOOKED, 1 CANCELLED) — all 4 statuses covered")
     print(f"\n  💡 Re-running is safe — existing records are skipped.")
     print()

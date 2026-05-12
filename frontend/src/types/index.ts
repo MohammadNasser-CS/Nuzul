@@ -156,6 +156,8 @@ export interface Property {
   verified_by: string | null
   rejection_reason: string | null
   admin_notes: string | null
+  /** Landlord's explanation when re-submitting an APPROVED property for review */
+  revision_note: string | null
   created_at: string
   updated_at: string
   rooms?: Room[]
@@ -185,7 +187,10 @@ export interface PropertyCreate {
   has_internet?: boolean
 }
 
-export type PropertyUpdate = Partial<PropertyCreate>
+export interface PropertyUpdate extends Partial<PropertyCreate> {
+  revision_note?: string
+  is_active?: boolean
+}
 
 // ── Booking ───────────────────────────────────────────────────────────────────
 export interface Booking {
@@ -216,6 +221,8 @@ export interface Inquiry {
   landlord_name: string
   landlord_phone: string
   message: string | null
+  move_in_date: string | null
+  move_out_date: string | null
   status: InquiryStatus
   handled_by: string | null
   handled_at: string | null
@@ -228,6 +235,8 @@ export interface Inquiry {
 export interface InquiryCreate {
   room_id: string
   message?: string
+  move_in_date?: string   // "YYYY-MM-DD"
+  move_out_date?: string  // "YYYY-MM-DD"
 }
 
 export interface InquiryStatusUpdate {

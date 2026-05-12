@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { landlordService } from '@/services/landlord'
+import { propertiesService } from '@/services/properties'
 import { ImageUpload } from '@/components/property/ImageUpload'
 import type { Property, PropertyImage, Room, RoomCreate, RoomUpdate } from '@/types'
 
@@ -450,6 +451,7 @@ export default function ManageRoomsPage() {
   const [loading, setLoading]   = useState(true)
   const [showAdd, setShowAdd]   = useState(false)
   const [error, setError]       = useState<string | null>(null)
+  const [revisionNote, setRevisionNote] = useState('')
 
   useEffect(() => {
     if (!propertyId) return
@@ -466,6 +468,17 @@ export default function ManageRoomsPage() {
       .catch(() => setError(t('landlord.rooms.loadError')))
       .finally(() => setLoading(false))
   }, [propertyId, t])
+
+  // Called after any room mutation when the property was APPROVED (now PENDING).
+  // Stores the landlord's revision note so the admin can see it during re-review.
+  async function saveRevisionNote() {
+    if (!propertyId || !revisionNote.trim()) return
+    try {
+      await propertiesService.update(propertyId, { revision_note: revisionNote.trim() })
+    } catch {
+      // Non-critical — silently ignore (the room save succeeded)
+    }
+  }
 
   if (!propertyId) return null
 
@@ -501,10 +514,23 @@ export default function ManageRoomsPage() {
         )}
       </div>
 
-      {/* APPROVED→PENDING notice */}
+      {/* APPROVED→PENDING notice + revision note input */}
       {property?.verification_status === 'APPROVED' && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
-          ⚠️ {t('landlord.rooms.approvedNotice')}
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-3">
+          <p className="text-sm text-amber-700">⚠️ {t('landlord.rooms.approvedNotice')}</p>
+          <div>
+            <label className="block text-xs font-medium text-amber-800 mb-1">
+              {t('landlord.rooms.revisionNote')}
+            </label>
+            <textarea
+              rows={2}
+              value={revisionNote}
+              onChange={(e) => setRevisionNote(e.target.value)}
+              placeholder={t('landlord.rooms.revisionNotePlaceholder')}
+              className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+            />
+            <p className="text-xs text-amber-600 mt-1">💡 {t('landlord.rooms.revisionNoteHint')}</p>
+          </div>
         </div>
       )}
 
@@ -522,9 +548,12 @@ export default function ManageRoomsPage() {
           {showAdd && (
             <RoomForm
               propertyId={propertyId}
-              onSaved={(room) => {
+              onSaved={async (room) => {
                 setRooms((r) => [room, ...r])
                 setShowAdd(false)
+                if (property?.verification_status === 'APPROVED') await saveRevisionNote()
+                // Reflect the new PENDING status locally
+                setProperty((p) => p ? { ...p, verification_status: 'PENDING' } : p)
               }}
               onCancel={() => setShowAdd(false)}
             />
@@ -548,12 +577,20 @@ export default function ManageRoomsPage() {
                 key={room.id}
                 room={room}
                 propertyId={propertyId}
-                onUpdated={(updated) =>
+                onUpdated={async (updated) => {
                   setRooms((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
-                }
-                onDeleted={(id) =>
+                  if (property?.verification_status === 'APPROVED') {
+                    await saveRevisionNote()
+                    setProperty((p) => p ? { ...p, verification_status: 'PENDING' } : p)
+                  }
+                }}
+                onDeleted={async (id) => {
                   setRooms((prev) => prev.filter((r) => r.id !== id))
-                }
+                  if (property?.verification_status === 'APPROVED') {
+                    await saveRevisionNote()
+                    setProperty((p) => p ? { ...p, verification_status: 'PENDING' } : p)
+                  }
+                }}
               />
             ))
           )}

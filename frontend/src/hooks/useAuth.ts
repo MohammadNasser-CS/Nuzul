@@ -8,6 +8,7 @@ import type { User } from '../types'
 export function getPostLoginRoute(user: User): string {
   if (!user.role) return '/role-selection'
   if (user.role === 'STUDENT' && !user.student_profile) return '/student-info'
+  if (user.role === 'ADMIN') return '/admin/dashboard'
   return '/dashboard'
 }
 

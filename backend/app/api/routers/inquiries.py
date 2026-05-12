@@ -16,6 +16,11 @@ router = APIRouter(tags=["inquiries"])
 class InquiryCreate(BaseModel):
     room_id: str
     message: Optional[str] = None
+    # Future-booking fields — optional.
+    # Requires DB columns: ALTER TABLE inquiries ADD COLUMN move_in_date date;
+    #                      ALTER TABLE inquiries ADD COLUMN move_out_date date;
+    move_in_date: Optional[str] = None   # ISO date string "YYYY-MM-DD"
+    move_out_date: Optional[str] = None  # ISO date string "YYYY-MM-DD"
 
 
 class InquiryStatusUpdate(BaseModel):
@@ -50,7 +55,7 @@ def _enrich(db, inquiries: list[dict]) -> list[dict]:
     }
 
     for inq in inquiries:
-        inq["room"]     = rooms.get(str(inq["room_id"]))
+        inq["room"] = rooms.get(str(inq["room_id"]))
         inq["property"] = props.get(str(inq["property_id"]))
 
     return inquiries
@@ -73,7 +78,8 @@ async def create_inquiry(
     db = get_db()
 
     # 1. Fetch room ─────────────────────────────────────────────────────────────
-    room_result = db.table("rooms").select("*").eq("id", data.room_id).execute()
+    room_result = db.table("rooms").select(
+        "*").eq("id", data.room_id).execute()
     if not room_result.data:
         raise HTTPException(status_code=404, detail="Room not found.")
     room = room_result.data[0]
@@ -127,12 +133,15 @@ async def create_inquiry(
         "room_id":       data.room_id,
         "property_id":   str(room["property_id"]),
         # Contact snapshots captured now so they survive future profile edits
-        "student_name":  user.get("full_name")         or "",
-        "student_phone": user.get("phone_number")      or "",
-        "landlord_name": landlord.get("full_name")     or "",
-        "landlord_phone":landlord.get("phone_number")  or "",
+        "student_name":  user.get("full_name") or "",
+        "student_phone": user.get("phone_number") or "",
+        "landlord_name": landlord.get("full_name") or "",
+        "landlord_phone": landlord.get("phone_number") or "",
         "message":       data.message,
         "status":        InquiryStatus.PENDING.value,
+        # Future-booking — stored as-is; None if not provided
+        "move_in_date":  data.move_in_date,
+        "move_out_date": data.move_out_date,
     }
     result = db.table("inquiries").insert(payload).execute()
     return _enrich(db, result.data)[0]
@@ -207,18 +216,20 @@ async def update_inquiry_status(
     """
     db = get_db()
 
-    existing = db.table("inquiries").select("id, status").eq("id", inquiry_id).execute()
+    existing = db.table("inquiries").select(
+        "id, status").eq("id", inquiry_id).execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Inquiry not found.")
 
     current = existing.data[0]["status"]
-    next_s  = body.status.value
+    next_s = body.status.value
 
     ALLOWED: dict[str, set[str]] = {
         InquiryStatus.PENDING.value:   {InquiryStatus.CONTACTED.value, InquiryStatus.CANCELLED.value},
         InquiryStatus.CONTACTED.value: {InquiryStatus.BOOKED.value,    InquiryStatus.CANCELLED.value},
         InquiryStatus.BOOKED.value:    set(),  # terminal
-        InquiryStatus.CANCELLED.value: {InquiryStatus.PENDING.value},  # reopen only
+        # reopen only
+        InquiryStatus.CANCELLED.value: {InquiryStatus.PENDING.value},
     }
 
     if next_s not in ALLOWED.get(current, set()):
@@ -237,4 +248,8 @@ async def update_inquiry_status(
         .eq("id", inquiry_id)
         .execute()
     )
+    if not result.data:
+        # Fallback: re-fetch the row if the driver still returns nothing
+        result = db.table("inquiries").select(
+            "*").eq("id", inquiry_id).execute()
     return _enrich(db, result.data)[0]

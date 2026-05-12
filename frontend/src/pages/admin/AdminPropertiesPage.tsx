@@ -181,6 +181,14 @@ function PropertyCard({ property: p, onApprove, onReject, approving }: PropertyC
           {roomCount} {t('admin.properties.rooms')} · {imageCount} {t('admin.properties.images')}
         </p>
 
+        {/* Landlord revision note (shown when PENDING after an edit) */}
+        {p.verification_status === 'PENDING' && p.revision_note && (
+          <div className="text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-0.5">
+            <p className="font-semibold text-amber-700">📝 {t('admin.properties.revisionNote')}</p>
+            <p className="text-amber-800 line-clamp-3">{p.revision_note}</p>
+          </div>
+        )}
+
         {/* Rejection reason (if rejected) */}
         {p.verification_status === 'REJECTED' && p.rejection_reason && (
           <p className="text-xs text-red-600 bg-red-50 rounded px-2 py-1 line-clamp-2">

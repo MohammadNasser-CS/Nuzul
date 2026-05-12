@@ -113,11 +113,16 @@ async def update_property(
     if not update_payload:
         raise HTTPException(status_code=422, detail="No fields to update.")
 
-    # Re-trigger moderation whenever an approved property is changed
+    # Re-trigger moderation whenever an approved property is changed.
+    # Preserve revision_note from the payload (landlord explanation for admin).
     if prop.get("verification_status") == "APPROVED":
         update_payload["verification_status"] = "PENDING"
         update_payload["verified_at"] = None
         update_payload["verified_by"] = None
+        # revision_note is already in update_payload if the landlord supplied one;
+        # if they didn't, clear any stale note from a previous cycle.
+        if "revision_note" not in update_payload:
+            update_payload["revision_note"] = None
 
     result = db.table("properties").update(
         update_payload).eq("id", property_id).execute()

@@ -229,13 +229,25 @@ export default function PropertyDetailPage() {
           {/* Price summary card */}
           {availableRooms.length > 0 && (
             <div className="border border-gray-200 rounded-2xl p-5 bg-white sticky top-6">
-              <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">
-                {t('property.priceFrom')}
-              </p>
-              <p className="text-2xl font-bold text-brand-600">
-                ₪{Math.round(Math.min(...availableRooms.map((r) => parseFloat(r.price_per_bed)))).toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-400">{t('property.perBed')}</p>
+              {user ? (
+                <>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">
+                    {t('property.priceFrom')}
+                  </p>
+                  <p className="text-2xl font-bold text-brand-600">
+                    ₪{Math.round(Math.min(...availableRooms.map((r) => parseFloat(r.price_per_bed)))).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-400">{t('property.perBed')}</p>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-brand-600 transition-colors"
+                >
+                  <span>🔒</span>
+                  <span>{t('property.signInToSeePrices')}</span>
+                </Link>
+              )}
               <p className="text-sm text-gray-500 mt-3">
                 {availableRooms.length} {t('property.availableRoomsCount')}
               </p>

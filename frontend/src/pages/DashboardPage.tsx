@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth, useProfileGuard } from '@/hooks/useAuth'
 import { landlordService, type LandlordDashboardStats } from '@/services/landlord'
-import type { Property } from '@/types'
+import { inquiriesService } from '@/services/inquiries'
+import { LandlordBanner, StudentBanner } from '@/components/ui/HeroBanner'
+import type { Inquiry, Property } from '@/types'
 
 function StatusBadge({ status }: { status: Property['verification_status'] }) {
   const { t } = useTranslation()
@@ -19,7 +21,7 @@ function StatusBadge({ status }: { status: Property['verification_status'] }) {
   )
 }
 
-function LandlordDashboard() {
+function LandlordDashboard({ name }: { name?: string | null }) {
   const { t } = useTranslation()
   const [properties, setProperties] = useState<Property[]>([])
   const [stats, setStats]           = useState<LandlordDashboardStats | null>(null)
@@ -40,6 +42,7 @@ function LandlordDashboard() {
 
   return (
     <div className="space-y-6">
+      <LandlordBanner name={name} />
       {/* My Properties header */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -170,54 +173,126 @@ function LandlordDashboard() {
   )
 }
 
-function StudentDashboard() {
+const INQUIRY_STATUS_STYLES: Record<string, string> = {
+  PENDING:   'bg-yellow-50 text-yellow-700 border-yellow-200',
+  CONTACTED: 'bg-blue-50   text-blue-700   border-blue-200',
+  BOOKED:    'bg-green-50  text-green-700  border-green-200',
+  CANCELLED: 'bg-red-50    text-red-500    border-red-200',
+}
+
+function StudentDashboard({ name }: { name?: string | null }) {
   const { t } = useTranslation()
+  const [inquiries, setInquiries] = useState<Inquiry[]>([])
+  const [loading, setLoading]     = useState(true)
+
+  useEffect(() => {
+    inquiriesService.myInquiries()
+      .then(res => setInquiries(res.data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const active = inquiries.filter(i => i.status === 'PENDING' || i.status === 'CONTACTED').length
+  const booked = inquiries.filter(i => i.status === 'BOOKED').length
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <Link
-        to="/listings"
-        className="border border-gray-200 rounded-xl p-6 bg-white hover:shadow-sm transition-shadow flex flex-col gap-2"
-      >
-        <span className="text-2xl">🔍</span>
-        <p className="font-semibold text-gray-900 text-sm">{t('dashboard.browseListings')}</p>
-        <p className="text-xs text-gray-400">{t('dashboard.browseListingsDesc')}</p>
-      </Link>
-      <div className="border border-gray-200 rounded-xl p-6 bg-white">
-        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{t('dashboard.myBookings')}</p>
-        <p className="text-3xl font-bold text-gray-900">—</p>
-        <p className="text-xs text-gray-400 mt-1">{t('dashboard.comingSoon')}</p>
+    <div className="space-y-6">
+      <StudentBanner name={name} />
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link
+          to="/listings"
+          className="border border-brand-200 rounded-xl p-4 bg-brand-50 hover:bg-brand-100 transition-colors flex flex-col gap-1 col-span-2 sm:col-span-1"
+        >
+          <span className="text-xl">🔍</span>
+          <p className="font-semibold text-brand-800 text-sm">{t('dashboard.browseListings')}</p>
+          <p className="text-xs text-brand-600">{t('dashboard.browseListingsDesc')}</p>
+        </Link>
+        <div className="border border-gray-200 rounded-xl p-4 bg-white text-center">
+          <p className="text-2xl font-bold text-gray-900">{loading ? '—' : inquiries.length}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('dashboard.totalInquiries')}</p>
+        </div>
+        <div className="border border-gray-200 rounded-xl p-4 bg-white text-center">
+          <p className="text-2xl font-bold text-blue-600">{loading ? '—' : active}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('dashboard.activeInquiries')}</p>
+        </div>
+        <div className="border border-gray-200 rounded-xl p-4 bg-white text-center">
+          <p className="text-2xl font-bold text-green-600">{loading ? '—' : booked}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('dashboard.bookedInquiries')}</p>
+        </div>
       </div>
-      <div className="border border-gray-200 rounded-xl p-6 bg-white">
-        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{t('dashboard.savedListings')}</p>
-        <p className="text-3xl font-bold text-gray-900">—</p>
-        <p className="text-xs text-gray-400 mt-1">{t('dashboard.comingSoon')}</p>
-      </div>
+
+      {/* Inquiries list */}
+      <section>
+        <h2 className="text-base font-semibold text-gray-800 mb-3">{t('dashboard.myInquiries')}</h2>
+
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : inquiries.length === 0 ? (
+          <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-2xl">
+            <p className="text-3xl mb-2">📭</p>
+            <p className="text-gray-500 text-sm">{t('dashboard.noInquiries')}</p>
+            <Link
+              to="/listings"
+              className="mt-3 inline-block text-brand-600 hover:underline text-sm font-medium"
+            >
+              {t('dashboard.browseListings')} →
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {inquiries.map(inq => {
+              const date = new Date(inq.created_at).toLocaleDateString(undefined, {
+                day: '2-digit', month: 'short', year: 'numeric',
+              })
+              return (
+                <Link
+                  key={inq.id}
+                  to={`/listings/${inq.property_id}${inq.room_id ? `?room=${inq.room_id}` : ''}`}
+                  className="flex items-center gap-4 bg-white border border-gray-200 rounded-xl p-4 hover:border-brand-200 hover:bg-brand-50 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-lg shrink-0">
+                    🏠
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 text-sm truncate">
+                      {inq.property?.title ?? '—'}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {inq.property?.city}
+                      {inq.room ? ` · ${t(`enums.roomType.${inq.room.room_type}`)}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={`text-xs px-2 py-0.5 rounded-full border ${INQUIRY_STATUS_STYLES[inq.status]}`}>
+                      {t(`enums.inquiryStatus.${inq.status}`)}
+                    </span>
+                    <span className="text-xs text-gray-400">{date}</span>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </section>
     </div>
   )
 }
 
 export default function DashboardPage() {
-  const { t } = useTranslation()
   const { user } = useAuth()
   useProfileGuard()
 
-  const roleLabel = user?.role ? t(`enums.role.${user.role}`) : '—'
-
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          {user?.full_name
-            ? t('dashboard.welcomeNamed', { name: user.full_name })
-            : t('dashboard.welcome')}
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          {t('dashboard.role')}: <span className="font-medium text-gray-700">{roleLabel}</span>
-        </p>
-      </div>
-
-      {user?.role === 'LANDLORD' && <LandlordDashboard />}
-      {user?.role === 'STUDENT'  && <StudentDashboard />}
+      {user?.role === 'ADMIN'    && <Navigate to="/admin/dashboard" replace />}
+      {user?.role === 'LANDLORD' && <LandlordDashboard name={user.full_name} />}
+      {user?.role === 'STUDENT'  && <StudentDashboard  name={user.full_name} />}
     </div>
   )
 }

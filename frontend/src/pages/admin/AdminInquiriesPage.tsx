@@ -42,14 +42,17 @@ function InquiryCard({
   onStatusChange,
 }: {
   inquiry: Inquiry
-  onStatusChange: (id: string, s: InquiryStatus) => Promise<void>
+  onStatusChange: (id: string, s: InquiryStatus) => Promise<string | null>
 }) {
   const { t } = useTranslation()
   const [updating, setUpdating] = useState(false)
+  const [cardError, setCardError] = useState<string | null>(null)
 
   async function update(s: InquiryStatus) {
     setUpdating(true)
-    await onStatusChange(inquiry.id, s)
+    setCardError(null)
+    const err = await onStatusChange(inquiry.id, s)
+    if (err) setCardError(err)
     setUpdating(false)
   }
 
@@ -131,11 +134,24 @@ function InquiryCard({
         </div>
       </div>
 
+      {/* Move-in date */}
+      {inquiry.move_in_date && (
+        <p className="text-xs text-indigo-700 bg-indigo-50 rounded-lg px-3 py-2 flex items-center gap-1.5">
+          <span>📅</span>
+          {t('admin.inquiries.moveInDate')}: <span className="font-semibold">{inquiry.move_in_date}</span>
+        </p>
+      )}
+
       {/* Message */}
       {inquiry.message && (
         <p className="text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2 italic">
           "{inquiry.message}"
         </p>
+      )}
+
+      {/* Per-card error */}
+      {cardError && (
+        <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{cardError}</p>
       )}
 
       {/* Actions */}
@@ -258,18 +274,27 @@ export default function AdminInquiriesPage() {
       .finally(() => setLoading(false))
   }, [tab, t])
 
-  async function handleStatusChange(id: string, status: InquiryStatus) {
+  async function handleStatusChange(id: string, status: InquiryStatus): Promise<string | null> {
     try {
       const res = await inquiriesService.updateStatus(id, status)
-      // Update the card in the list
-      setInquiries((prev) => prev.map((i) => (i.id === id ? res.data : i)))
-      // Refresh counts from backend to keep badges accurate
+      const updated = res.data
+      setInquiries((prev) => {
+        const next = prev.map((i) => (i.id === id ? updated : i))
+        // When on a filtered tab, remove the inquiry if it no longer belongs
+        if (tab !== 'ALL' && updated.status !== tab) {
+          return next.filter((i) => i.id !== id)
+        }
+        return next
+      })
+      // Refresh tab-badge counts
       inquiriesService
-        .adminList(tab === 'ALL' ? undefined : tab)
+        .adminList(undefined)
         .then((r) => setCounts(r.data.counts))
         .catch(() => {})
-    } catch {
-      // silently ignore — card UI stays at old state
+      return null
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } }
+      return e?.response?.data?.detail ?? t('admin.inquiries.updateError')
     }
   }
 

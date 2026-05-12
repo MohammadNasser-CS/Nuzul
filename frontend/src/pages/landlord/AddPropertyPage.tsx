@@ -50,9 +50,6 @@ interface InfoData {
   property_type:      Property['property_type'] | ''
   description:        string
   group_name:         string
-  building_name:      string
-  building_number:    string
-  floor_number:       string
   nearby_university:  UniversityName | ''
   gender_preference:  Property['gender_preference']
 }
@@ -146,42 +143,6 @@ function StepInfo({
         <p className="text-xs text-gray-400 mt-1">{t('addProperty.info.groupNameHint')}</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {t('addProperty.info.buildingName')}
-          </label>
-          <input
-            type="text"
-            value={data.building_name}
-            onChange={(e) => set('building_name', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {t('addProperty.info.buildingNumber')}
-          </label>
-          <input
-            type="text"
-            value={data.building_number}
-            onChange={(e) => set('building_number', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {t('addProperty.info.floorNumber')}
-          </label>
-          <input
-            type="number"
-            value={data.floor_number}
-            onChange={(e) => set('floor_number', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-      </div>
-
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           {t('addProperty.info.nearbyUniversity')}
@@ -223,10 +184,13 @@ function StepLocation({
   const { t, i18n } = useTranslation()
   const fwd = i18n.dir() === 'rtl' ? '←' : '→'
   const bk  = i18n.dir() === 'rtl' ? '→' : '←'
-  const [location, setLocation] = useState<MapLocation | null>(null)
-  const [city, setCity]         = useState('')
-  const [error, setError]       = useState<string | null>(null)
-  const [loading, setLoading]   = useState(false)
+  const [location, setLocation]       = useState<MapLocation | null>(null)
+  const [city, setCity]               = useState('')
+  const [buildingName, setBuildingName]     = useState('')
+  const [buildingNumber, setBuildingNumber] = useState('')
+  const [floorNumber, setFloorNumber]       = useState('')
+  const [error, setError]             = useState<string | null>(null)
+  const [loading, setLoading]         = useState(false)
 
   function handleLocationChange(loc: MapLocation) {
     setLocation(loc)
@@ -245,10 +209,10 @@ function StepLocation({
       gender_preference: infoData.gender_preference,
       description:      infoData.description || undefined,
       group_name:       infoData.group_name || undefined,
-      building_name:    infoData.building_name || undefined,
-      building_number:  infoData.building_number || undefined,
-      floor_number:     infoData.floor_number
-        ? (isNaN(parseInt(infoData.floor_number, 10)) ? undefined : parseInt(infoData.floor_number, 10))
+      building_name:    buildingName || undefined,
+      building_number:  buildingNumber || undefined,
+      floor_number:     floorNumber
+        ? (isNaN(parseInt(floorNumber, 10)) ? undefined : parseInt(floorNumber, 10))
         : undefined,
       city:                city.trim(),
       latitude:            location.lat,
@@ -276,25 +240,69 @@ function StepLocation({
 
   return (
     <div className="space-y-5">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {t('addProperty.location.city')} <span className="text-red-400">*</span>
-        </label>
-        <input
-          type="text"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          placeholder={t('addProperty.location.cityPlaceholder')}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
-      </div>
-
+      {/* Map is the single source of truth for location */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t('addProperty.location.map')}
+          {t('addProperty.location.map')} <span className="text-red-400">*</span>
         </label>
         <MapPicker value={location} onChange={handleLocationChange} />
       </div>
+
+      {/* City + building details — appear only after a pin is set */}
+      {location && (
+        <>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('addProperty.location.city')} <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder={t('addProperty.location.cityPlaceholder')}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">{t('addProperty.location.cityDetected')}</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('addProperty.info.buildingName')}
+              </label>
+              <input
+                type="text"
+                value={buildingName}
+                onChange={(e) => setBuildingName(e.target.value)}
+                placeholder={t('addProperty.location.buildingNamePlaceholder')}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('addProperty.info.buildingNumber')}
+              </label>
+              <input
+                type="text"
+                value={buildingNumber}
+                onChange={(e) => setBuildingNumber(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t('addProperty.info.floorNumber')}
+              </label>
+              <input
+                type="number"
+                value={floorNumber}
+                onChange={(e) => setFloorNumber(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
@@ -470,17 +478,34 @@ const emptyRoomForm: RoomFormData = {
   has_office:           false,
 }
 
+function roomToFormData(room: Room): RoomFormData {
+  return {
+    room_type:            room.room_type,
+    price_per_bed:        String(Math.round(parseFloat(room.price_per_bed))),
+    number_of_beds:       String(room.number_of_beds),
+    available_beds:       String(room.available_beds),
+    available_from:       room.available_from?.slice(0, 10) ?? '',
+    description:          room.description ?? '',
+    has_internal_bathroom: room.has_internal_bathroom,
+    has_internal_balcony:  room.has_internal_balcony,
+    has_ac:               room.has_ac,
+    has_office:           room.has_office,
+  }
+}
+
 function RoomFormInline({
   propertyId,
+  initial,
   onSaved,
   onCancel,
 }: {
   propertyId: string
+  initial?: Room
   onSaved: (room: Room) => void
   onCancel: () => void
 }) {
   const { t } = useTranslation()
-  const [form, setForm]   = useState<RoomFormData>(emptyRoomForm)
+  const [form, setForm]       = useState<RoomFormData>(initial ? roomToFormData(initial) : emptyRoomForm)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
 
@@ -502,8 +527,8 @@ function RoomFormInline({
       setError(t('addProperty.rooms.form.bedsError')); return
     }
     setLoading(true)
-    const payload: RoomCreate = {
-      property_id:          propertyId,
+
+    const roomFields = {
       room_type:            form.room_type as Room['room_type'],
       price_per_bed:        parseFloat(form.price_per_bed),
       number_of_beds:       beds,
@@ -515,8 +540,14 @@ function RoomFormInline({
       has_ac:               form.has_ac,
       has_office:           form.has_office,
     }
+
     try {
-      const res = await landlordService.createRoom(payload)
+      let res
+      if (initial) {
+        res = await landlordService.updateRoom(initial.id, roomFields)
+      } else {
+        res = await landlordService.createRoom({ property_id: propertyId, ...roomFields })
+      }
       onSaved(res.data)
     } catch {
       setError(t('addProperty.rooms.form.error'))
@@ -527,7 +558,9 @@ function RoomFormInline({
 
   return (
     <form onSubmit={handleSave} className="border border-brand-200 rounded-xl p-4 bg-brand-50 space-y-4">
-      <h4 className="text-sm font-semibold text-gray-800">{t('addProperty.rooms.form.title')}</h4>
+      <h4 className="text-sm font-semibold text-gray-800">
+        {initial ? t('addProperty.rooms.form.editTitle') : t('addProperty.rooms.form.title')}
+      </h4>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
@@ -695,6 +728,9 @@ function RoomImageSection({ room }: { room: Room }) {
   )
 }
 
+// activeForm: null = nothing open, '__new__' = add-new form, room.id = edit that room
+type RoomFormMode = null | '__new__' | string
+
 function StepRooms({
   property,
   onRoomsChange,
@@ -706,14 +742,21 @@ function StepRooms({
 }) {
   const { t, i18n } = useTranslation()
   const fwd = i18n.dir() === 'rtl' ? '←' : '→'
-  const [rooms, setRooms]     = useState<Room[]>([])
-  const [showForm, setShowForm] = useState(false)
+  const [rooms, setRooms]         = useState<Room[]>([])
+  const [activeForm, setActiveForm] = useState<RoomFormMode>(null)
 
-  function addRoom(room: Room) {
-    const next = [...rooms, room]
+  function updateList(next: Room[]) {
     setRooms(next)
     onRoomsChange(next)
-    setShowForm(false)
+  }
+
+  function handleSaved(room: Room) {
+    if (activeForm === '__new__') {
+      updateList([...rooms, room])
+    } else {
+      updateList(rooms.map((r) => (r.id === room.id ? room : r)))
+    }
+    setActiveForm(null)
   }
 
   return (
@@ -722,39 +765,61 @@ function StepRooms({
 
       {rooms.length > 0 && (
         <div className="space-y-3">
-          {rooms.map((room) => (
-            <div key={room.id} className="border border-gray-200 rounded-xl p-4 bg-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                    {t(`enums.roomType.${room.room_type}`)}
-                  </span>
-                  <span className="text-sm font-semibold text-brand-600 ms-3">
-                    ₪{Math.round(parseFloat(room.price_per_bed)).toLocaleString()}
-                  </span>
-                  <span className="text-xs text-gray-400 ms-1">{t('property.perBed')}</span>
+          {rooms.map((room) =>
+            activeForm === room.id ? (
+              // Edit form replaces the card inline
+              <RoomFormInline
+                key={room.id}
+                propertyId={property.id}
+                initial={room}
+                onSaved={handleSaved}
+                onCancel={() => setActiveForm(null)}
+              />
+            ) : (
+              <div key={room.id} className="border border-gray-200 rounded-xl p-4 bg-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                      {t(`enums.roomType.${room.room_type}`)}
+                    </span>
+                    <span className="text-sm font-semibold text-brand-600 ms-3">
+                      ₪{Math.round(parseFloat(room.price_per_bed)).toLocaleString()}
+                    </span>
+                    <span className="text-xs text-gray-400 ms-1">{t('property.perBed')}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-400">
+                      {room.number_of_beds} {t('property.beds')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveForm(room.id)}
+                      disabled={activeForm !== null}
+                      className="text-xs text-brand-600 hover:text-brand-700 font-medium disabled:opacity-40 transition-colors"
+                    >
+                      ✏️ {t('addProperty.rooms.editRoom')}
+                    </button>
+                  </div>
                 </div>
-                <span className="text-xs text-gray-400">
-                  {room.number_of_beds} {t('property.beds')}
-                </span>
+                <RoomImageSection room={room} />
               </div>
-              <RoomImageSection room={room} />
-            </div>
-          ))}
+            )
+          )}
         </div>
       )}
 
-      {showForm ? (
+      {activeForm === '__new__' ? (
         <RoomFormInline
           propertyId={property.id}
-          onSaved={addRoom}
-          onCancel={() => setShowForm(false)}
+          onSaved={handleSaved}
+          onCancel={() => setActiveForm(null)}
         />
       ) : (
         <button
           type="button"
-          onClick={() => setShowForm(true)}
-          className="w-full border-2 border-dashed border-gray-300 hover:border-brand-400 text-gray-500 hover:text-brand-600 rounded-xl py-4 text-sm font-medium transition-colors"
+          onClick={() => setActiveForm('__new__')}
+          disabled={activeForm !== null}
+          className="w-full border-2 border-dashed border-gray-300 hover:border-brand-400 text-gray-500 hover:text-brand-600 disabled:opacity-40 rounded-xl py-4 text-sm font-medium transition-colors"
         >
           + {t('addProperty.rooms.addRoom')}
         </button>
@@ -764,7 +829,8 @@ function StepRooms({
         <button
           type="button"
           onClick={onFinish}
-          className="bg-brand-600 hover:bg-brand-700 text-white font-medium px-6 py-2.5 rounded-lg transition-colors text-sm"
+          disabled={activeForm !== null}
+          className="bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-medium px-6 py-2.5 rounded-lg transition-colors text-sm"
         >
           {t('addProperty.next')} {fwd}
         </button>
@@ -914,9 +980,6 @@ const defaultInfo: InfoData = {
   property_type:     '',
   description:       '',
   group_name:        '',
-  building_name:     '',
-  building_number:   '',
-  floor_number:      '',
   nearby_university: '',
   gender_preference: 'ANY',
 }

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuthStore } from '@/store/authStore'
 import type { Property } from '@/types'
 
 interface Props {
@@ -18,6 +19,7 @@ function formatPrice(n: number) {
 
 export function PropertyCard({ property }: Props) {
   const { t } = useTranslation()
+  const { user } = useAuthStore()
   const coverImage = property.cover_image ?? property.images?.[0]?.image_url
   const priceRange = getPriceRange(property)
 
@@ -84,14 +86,21 @@ export function PropertyCard({ property }: Props) {
         )}
 
         {priceRange && (
-          <p className="text-brand-600 font-bold text-sm pt-1">
-            {priceRange.min === priceRange.max
-              ? formatPrice(priceRange.min)
-              : `${formatPrice(priceRange.min)} – ${formatPrice(priceRange.max)}`}
-            <span className="text-gray-400 font-normal text-xs ms-1">
-              {t('property.perBed')}
-            </span>
-          </p>
+          user ? (
+            <p className="text-brand-600 font-bold text-sm pt-1">
+              {priceRange.min === priceRange.max
+                ? formatPrice(priceRange.min)
+                : `${formatPrice(priceRange.min)} – ${formatPrice(priceRange.max)}`}
+              <span className="text-gray-400 font-normal text-xs ms-1">
+                {t('property.perBed')}
+              </span>
+            </p>
+          ) : (
+            <p className="text-sm pt-1 flex items-center gap-1 text-gray-400">
+              <span>🔒</span>
+              <span className="text-xs">{t('property.signInToSeePrices')}</span>
+            </p>
+          )
         )}
 
         {property.rooms && (

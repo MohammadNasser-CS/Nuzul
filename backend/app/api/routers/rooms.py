@@ -30,16 +30,19 @@ def _assert_room_ownership(room: dict, user: dict, db) -> dict:
     return prop
 
 
-def _reset_moderation_if_approved(db, prop: dict) -> None:
+def _reset_moderation_if_approved(db, prop: dict, revision_note: str | None = None) -> None:
     """
     If the parent property is currently APPROVED, reset it to PENDING.
     Changing rooms counts as editing the listing — re-review is required.
+    An optional revision_note (landlord's explanation) is stored so the admin
+    can see why the listing came back for review.
     """
     if prop.get("verification_status") == "APPROVED":
         db.table("properties").update({
             "verification_status": "PENDING",
             "verified_at": None,
             "verified_by": None,
+            "revision_note": revision_note,  # may be None — clears stale notes
         }).eq("id", prop["id"]).execute()
 
 

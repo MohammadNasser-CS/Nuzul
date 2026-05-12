@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuthStore } from '@/store/authStore'
 import type { Room } from '@/types'
 import { ImageGallery } from './ImageGallery'
 
@@ -14,6 +16,7 @@ interface Props {
 
 export function RoomCard({ room, onSelect, onContact, highlighted = false }: Props) {
   const { t } = useTranslation()
+  const { user } = useAuthStore()
   const [showGallery, setShowGallery] = useState(false)
   const price = Math.round(parseFloat(room.price_per_bed))
   const images = room.images ?? []
@@ -72,8 +75,21 @@ export function RoomCard({ room, onSelect, onContact, highlighted = false }: Pro
         {/* Price & beds */}
         <div className="flex items-end justify-between">
           <div>
-            <span className="text-xl font-bold text-brand-600">₪{price.toLocaleString()}</span>
-            <span className="text-gray-400 text-xs ms-1">{t('property.perBed')}</span>
+            {user ? (
+              <>
+                <span className="text-xl font-bold text-brand-600">₪{price.toLocaleString()}</span>
+                <span className="text-gray-400 text-xs ms-1">{t('property.perBed')}</span>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                className="flex items-center gap-1 text-sm text-gray-400 hover:text-brand-600 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span>🔒</span>
+                <span className="text-xs underline underline-offset-2">{t('property.signInToSeePrices')}</span>
+              </Link>
+            )}
           </div>
           <p className="text-sm text-gray-500">
             {room.available_beds}/{room.number_of_beds}{' '}

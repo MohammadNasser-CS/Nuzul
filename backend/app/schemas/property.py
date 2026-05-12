@@ -46,6 +46,11 @@ class PropertyUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
 
+    # Landlord-supplied note explaining why they are re-submitting for review.
+    # Stored on the property so admin can see the reason when it lands in PENDING.
+    # Requires DB column: ALTER TABLE properties ADD COLUMN revision_note text;
+    revision_note: Optional[str] = None
+
     group_name: Optional[str] = None
 
     building_name: Optional[str] = None
@@ -111,6 +116,7 @@ class PropertyRead(BaseModel):
     rejected_by: Optional[UUID] = None
     rejection_reason: Optional[str] = None
     admin_notes: Optional[str] = None
+    revision_note: Optional[str] = None
 
     created_at: datetime
     updated_at: datetime

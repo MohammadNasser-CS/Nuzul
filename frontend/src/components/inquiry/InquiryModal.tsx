@@ -13,6 +13,7 @@ export function InquiryModal({ room, onClose }: Props) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [message, setMessage] = useState('')
+  const [moveInDate, setMoveInDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,7 +39,11 @@ export function InquiryModal({ room, onClose }: Props) {
     setError(null)
     setLoading(true)
     try {
-      await inquiriesService.create({ room_id: room.id, message: message || undefined })
+      await inquiriesService.create({
+        room_id: room.id,
+        message: message || undefined,
+        move_in_date: moveInDate || undefined,
+      })
       setSuccess(true)
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string }; status?: number } }
@@ -134,13 +139,27 @@ export function InquiryModal({ room, onClose }: Props) {
                 </div>
               )}
 
+              {/* Desired move-in date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('inquiry.moveInDate')}
+                </label>
+                <input
+                  type="date"
+                  value={moveInDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setMoveInDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+
               {/* Message */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   {t('inquiry.message')}
                 </label>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder={t('inquiry.messagePlaceholder')}
