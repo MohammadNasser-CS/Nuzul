@@ -226,7 +226,7 @@ async def create_property(
     payload["landlord_id"]           = user["id"]
     payload["verification_status"]   = "PENDING"
     payload["is_active"]             = True
-    result = db.table("properties").insert(payload).execute()
+    result = db.table("properties").insert(payload).select().execute()
     return result.data[0]
 
 
@@ -252,7 +252,7 @@ async def update_property(
         payload["verified_at"]         = None
         payload["verified_by"]         = None
 
-    result = db.table("properties").update(payload).eq("id", property_id).execute()
+    result = db.table("properties").update(payload).eq("id", property_id).select().execute()
     return result.data[0]
 
 
@@ -319,7 +319,7 @@ async def create_room(
     payload["property_id"] = str(payload["property_id"])
     payload["is_active"]   = True
 
-    result = db.table("rooms").insert(payload).execute()
+    result = db.table("rooms").insert(payload).select().execute()
     room   = result.data[0]
     room["is_available"] = room.get("available_beds", 0) > 0
 
@@ -352,7 +352,7 @@ async def update_room(
     if final_avail > final_total:
         raise HTTPException(status_code=422, detail="available_beds cannot exceed number_of_beds.")
 
-    result  = db.table("rooms").update(payload).eq("id", room_id).execute()
+    result  = db.table("rooms").update(payload).eq("id", room_id).select().execute()
     updated = result.data[0]
     updated["is_available"] = updated.get("available_beds", 0) > 0
 
@@ -470,7 +470,7 @@ async def upload_image(
         "image_url":    public_url,
         "storage_path": path,
         "is_primary":   is_primary if et == ImageEntityType.PROPERTY else False,
-    }).execute()
+    }).select().execute()
     return result.data[0]
 
 

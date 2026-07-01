@@ -50,7 +50,7 @@ async def create_booking(
     booking_data["student_id"] = user["id"]
     booking_data["status"] = "pending"
 
-    result = db.table("bookings").insert(booking_data).execute()
+    result = db.table("bookings").insert(booking_data).select().execute()
     return result.data[0]
 
 
@@ -75,5 +75,5 @@ async def update_booking(
     if not update_data:
         raise HTTPException(status_code=422, detail="No fields to update.")
 
-    result = db.table("bookings").update(update_data).eq("id", booking_id).execute()
+    result = db.table("bookings").update(update_data).eq("id", booking_id).select().execute()
     return result.data[0]
