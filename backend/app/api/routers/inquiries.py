@@ -143,7 +143,7 @@ async def create_inquiry(
         "move_in_date":  data.move_in_date,
         "move_out_date": data.move_out_date,
     }
-    result = db.table("inquiries").insert(payload).select().execute()
+    result = db.table("inquiries").insert(payload).execute()
     return _enrich(db, result.data)[0]
 
 

@@ -181,7 +181,7 @@ async def upload_image(
         "is_primary": is_primary if entity_type_enum == ImageEntityType.PROPERTY else False,
     }
 
-    result = db.table("images").insert(payload).select().execute()
+    result = db.table("images").insert(payload).execute()
     return result.data[0]
 
 

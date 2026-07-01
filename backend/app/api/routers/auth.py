@@ -54,7 +54,7 @@ async def complete_profile(
         "full_name": data.full_name,
         "phone_number": data.phone_number,
         "role": data.role.value,
-    }).eq("id", user_id).select().execute()
+    }).eq("id", user_id).execute()
 
     if not result.data:
         raise HTTPException(status_code=404, detail="User profile not found.")
@@ -102,9 +102,9 @@ async def complete_student_profile(
 
     if existing.data:
         result = db.table("student_profiles").update(
-            payload).eq("user_id", user_id).select().execute()
+            payload).eq("user_id", user_id).execute()
     else:
-        result = db.table("student_profiles").insert(payload).select().execute()
+        result = db.table("student_profiles").insert(payload).execute()
 
     if not result.data:
         raise HTTPException(

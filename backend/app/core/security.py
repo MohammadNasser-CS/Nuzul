@@ -65,7 +65,7 @@ async def get_current_user(
     insert_result = db.table("user_profiles").insert({
         "supabase_user_id": supabase_user_id,
         "email": email,
-    }).select().execute()
+    }).execute()
 
     if not insert_result.data:
         raise HTTPException(status_code=500, detail="Failed to create user profile.")

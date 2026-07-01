@@ -496,15 +496,20 @@ function roomToFormData(room: Room): RoomFormData {
 function RoomFormInline({
   propertyId,
   initial,
+  initialImages = [],
   onSaved,
   onCancel,
 }: {
   propertyId: string
   initial?: Room
-  onSaved: (room: Room) => void
+  initialImages?: PropertyImage[]
+  onSaved: (room: Room, images: PropertyImage[]) => void
   onCancel: () => void
 }) {
   const { t } = useTranslation()
+  const [phase, setPhase]     = useState<'details' | 'images'>('details')
+  const [savedRoom, setSavedRoom] = useState<Room | null>(null)
+  const [images, setImages]   = useState<PropertyImage[]>(initialImages)
   const [form, setForm]       = useState<RoomFormData>(initial ? roomToFormData(initial) : emptyRoomForm)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
@@ -548,7 +553,8 @@ function RoomFormInline({
       } else {
         res = await landlordService.createRoom({ property_id: propertyId, ...roomFields })
       }
-      onSaved(res.data)
+      setSavedRoom(res.data)
+      setPhase('images')
     } catch {
       setError(t('addProperty.rooms.form.error'))
     } finally {
@@ -556,6 +562,51 @@ function RoomFormInline({
     }
   }
 
+  // ── Phase 2: image upload ──────────────────────────────────────────────────
+  if (phase === 'images' && savedRoom) {
+    return (
+      <div className="border border-brand-200 rounded-xl p-4 bg-brand-50 space-y-4">
+        {/* Success banner */}
+        <div className="flex items-center gap-2 pb-3 border-b border-brand-100">
+          <span className="w-5 h-5 rounded-full bg-green-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">✓</span>
+          <p className="text-sm font-semibold text-gray-800">
+            {initial ? t('addProperty.rooms.form.roomUpdated') : t('addProperty.rooms.form.roomCreated')}
+          </p>
+        </div>
+
+        {/* Image upload */}
+        <div>
+          <p className="text-xs font-medium text-gray-700 mb-0.5">
+            {t('addProperty.rooms.form.addPhotos')}
+            <span className="text-gray-400 font-normal ms-1">— {t('addProperty.rooms.form.photosOptional')}</span>
+          </p>
+          <p className="text-xs text-gray-400 mb-3">{t('addProperty.rooms.form.photosHint')}</p>
+          <ImageUpload
+            entityId={savedRoom.id}
+            entityType="ROOM"
+            images={images}
+            maxImages={5}
+            onUploaded={(img) => setImages((p) => [...p, img])}
+            onDeleted={(id) => setImages((p) => p.filter((i) => i.id !== id))}
+          />
+        </div>
+
+        <div className="flex justify-end pt-1">
+          <button
+            type="button"
+            onClick={() => onSaved(savedRoom, images)}
+            className="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
+          >
+            {images.length > 0
+              ? `${t('addProperty.rooms.form.done')} (${images.length} ${t('addProperty.rooms.form.photos')})`
+              : t('addProperty.rooms.form.skipPhotos')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Phase 1: details form ──────────────────────────────────────────────────
   return (
     <form onSubmit={handleSave} className="border border-brand-200 rounded-xl p-4 bg-brand-50 space-y-4">
       <h4 className="text-sm font-semibold text-gray-800">
@@ -699,35 +750,6 @@ function RoomFormInline({
   )
 }
 
-function RoomImageSection({ room }: { room: Room }) {
-  const { t } = useTranslation()
-  const [images, setImages] = useState<PropertyImage[]>([])
-  const [open, setOpen]     = useState(false)
-  return (
-    <div className="mt-2">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="text-xs text-brand-600 hover:underline"
-      >
-        {open ? '▲' : '▼'} {t('addProperty.rooms.addImages')} ({images.length})
-      </button>
-      {open && (
-        <div className="mt-2">
-          <ImageUpload
-            entityId={room.id}
-            entityType="ROOM"
-            images={images}
-            maxImages={5}
-            onUploaded={(img) => setImages((p) => [...p, img])}
-            onDeleted={(id) => setImages((p) => p.filter((i) => i.id !== id))}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
-
 // activeForm: null = nothing open, '__new__' = add-new form, room.id = edit that room
 type RoomFormMode = null | '__new__' | string
 
@@ -742,7 +764,8 @@ function StepRooms({
 }) {
   const { t, i18n } = useTranslation()
   const fwd = i18n.dir() === 'rtl' ? '←' : '→'
-  const [rooms, setRooms]         = useState<Room[]>([])
+  const [rooms, setRooms]           = useState<Room[]>([])
+  const [roomImages, setRoomImages] = useState<Record<string, PropertyImage[]>>({})
   const [activeForm, setActiveForm] = useState<RoomFormMode>(null)
 
   function updateList(next: Room[]) {
@@ -750,7 +773,8 @@ function StepRooms({
     onRoomsChange(next)
   }
 
-  function handleSaved(room: Room) {
+  function handleSaved(room: Room, images: PropertyImage[]) {
+    setRoomImages((prev) => ({ ...prev, [room.id]: images }))
     if (activeForm === '__new__') {
       updateList([...rooms, room])
     } else {
@@ -767,30 +791,37 @@ function StepRooms({
         <div className="space-y-3">
           {rooms.map((room) =>
             activeForm === room.id ? (
-              // Edit form replaces the card inline
               <RoomFormInline
                 key={room.id}
                 propertyId={property.id}
                 initial={room}
+                initialImages={roomImages[room.id] || []}
                 onSaved={handleSaved}
                 onCancel={() => setActiveForm(null)}
               />
             ) : (
               <div key={room.id} className="border border-gray-200 rounded-xl p-4 bg-white">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                       {t(`enums.roomType.${room.room_type}`)}
                     </span>
-                    <span className="text-sm font-semibold text-brand-600 ms-3">
+                    <span className="text-sm font-semibold text-brand-600">
                       ₪{Math.round(parseFloat(room.price_per_bed)).toLocaleString()}
                     </span>
-                    <span className="text-xs text-gray-400 ms-1">{t('property.perBed')}</span>
+                    <span className="text-xs text-gray-400">{t('property.perBed')}</span>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0">
                     <span className="text-xs text-gray-400">
                       {room.number_of_beds} {t('property.beds')}
                     </span>
+                    {(roomImages[room.id]?.length ?? 0) > 0 ? (
+                      <span className="text-xs text-gray-400">
+                        📷 {roomImages[room.id].length}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-amber-500">{t('addProperty.rooms.noPhotos')}</span>
+                    )}
                     <button
                       type="button"
                       onClick={() => setActiveForm(room.id)}
@@ -801,7 +832,6 @@ function StepRooms({
                     </button>
                   </div>
                 </div>
-                <RoomImageSection room={room} />
               </div>
             )
           )}

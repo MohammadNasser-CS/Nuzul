@@ -254,7 +254,7 @@ async def approve_property(
         "rejection_reason": None,
         "rejected_at":      None,
         "rejected_by":      None,
-    }).eq("id", property_id).select().execute()
+    }).eq("id", property_id).execute()
 
     logger.info("Admin %s approved property %s", admin["id"], property_id)
     return result.data[0]
@@ -289,7 +289,7 @@ async def reject_property(
         # Clear approval fields
         "verified_at":  None,
         "verified_by":  None,
-    }).eq("id", property_id).select().execute()
+    }).eq("id", property_id).execute()
 
     logger.info(
         "Admin %s rejected property %s — reason: %s",
@@ -317,7 +317,7 @@ async def update_property_notes(
 
     result = db.table("properties").update(
         {"admin_notes": body.admin_notes}
-    ).eq("id", property_id).select().execute()
+    ).eq("id", property_id).execute()
 
     return result.data[0]
 

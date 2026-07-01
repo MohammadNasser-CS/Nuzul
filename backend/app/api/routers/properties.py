@@ -85,7 +85,7 @@ async def create_property(
     payload["verification_status"] = "PENDING"
     payload["is_active"] = True
 
-    result = db.table("properties").insert(payload).select().execute()
+    result = db.table("properties").insert(payload).execute()
     return result.data[0]
 
 
@@ -125,7 +125,7 @@ async def update_property(
             update_payload["revision_note"] = None
 
     result = db.table("properties").update(
-        update_payload).eq("id", property_id).select().execute()
+        update_payload).eq("id", property_id).execute()
     return result.data[0]
 
 
@@ -196,7 +196,7 @@ async def approve_property(
         "rejected_at": None,
         "rejected_by": None,
         "rejection_reason": None,
-    }).eq("id", property_id).select().execute()
+    }).eq("id", property_id).execute()
 
     return result.data[0]
 
@@ -221,6 +221,6 @@ async def reject_property(
         "rejected_by": admin["id"],
         "rejection_reason": body.reason,
         "admin_notes": body.admin_notes,
-    }).eq("id", property_id).select().execute()
+    }).eq("id", property_id).execute()
 
     return result.data[0]

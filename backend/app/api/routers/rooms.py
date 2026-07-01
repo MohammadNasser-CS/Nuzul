@@ -122,7 +122,7 @@ async def create_room(
     payload["property_id"] = str(payload["property_id"])
     payload["is_active"] = True
 
-    result = db.table("rooms").insert(payload).select().execute()
+    result = db.table("rooms").insert(payload).execute()
     room = result.data[0]
     room["is_available"] = room.get("available_beds", 0) > 0
 
@@ -169,7 +169,7 @@ async def update_room(
         )
 
     result = db.table("rooms").update(
-        update_payload).eq("id", room_id).select().execute()
+        update_payload).eq("id", room_id).execute()
     room = result.data[0]
     room["is_available"] = room.get("available_beds", 0) > 0
 
