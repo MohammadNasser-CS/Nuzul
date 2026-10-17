@@ -148,7 +148,7 @@ export function MapPicker({ value, onChange, readonly = false }: Props) {
 
   if (!hasApiKey) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
         {t('map.noApiKey')}
       </div>
     )
@@ -156,7 +156,7 @@ export function MapPicker({ value, onChange, readonly = false }: Props) {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
         {t('map.apiError')}: {error}
       </div>
     )
@@ -164,8 +164,8 @@ export function MapPicker({ value, onChange, readonly = false }: Props) {
 
   if (!isLoaded) {
     return (
-      <div className="h-64 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center">
-        <span className="text-gray-400 text-sm">{t('map.loading')}</span>
+      <div className="flex h-80 animate-pulse items-center justify-center rounded-2xl border border-line bg-slate-100">
+        <span className="text-sm text-slate-400">{t('map.loading')}</span>
       </div>
     )
   }
@@ -177,15 +177,15 @@ export function MapPicker({ value, onChange, readonly = false }: Props) {
           ref={searchInputRef}
           type="text"
           placeholder={t('map.searchPlaceholder')}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="h-11 w-full rounded-xl border border-line bg-white px-3.5 text-sm placeholder:text-slate-400 hover:border-slate-300 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100"
         />
       )}
-      <div ref={mapRef} className="h-64 rounded-xl overflow-hidden border border-gray-200" />
+      <div ref={mapRef} className="h-80 overflow-hidden rounded-2xl border border-line" />
       {!readonly && !value && (
-        <p className="text-xs text-gray-400">{t('map.clickHint')}</p>
+        <p className="text-xs text-slate-500">{t('map.clickHint')}</p>
       )}
       {value?.address && (
-        <p className="text-xs text-gray-500 truncate">{value.address}</p>
+        <p className="truncate rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">📍 {value.address}</p>
       )}
     </div>
   )
@@ -199,19 +199,19 @@ export function StaticMapView({ lat, lng, title }: { lat: number; lng: number; t
   const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <iframe
         title={title ?? 'map'}
         src={src}
         frameBorder={0}
-        className="w-full h-48 rounded-xl border border-gray-200"
+        className="h-72 w-full rounded-3xl border border-line"
         loading="lazy"
       />
       <a
         href={mapsUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline"
+        className="inline-flex items-center gap-1 text-sm font-bold text-brand-600 hover:underline"
       >
         📍 {t('map.viewOnGoogleMaps')}
       </a>

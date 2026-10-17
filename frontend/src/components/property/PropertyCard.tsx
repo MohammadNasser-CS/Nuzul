@@ -1,115 +1,139 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { LuBedDouble, LuGraduationCap, LuHouse, LuImages, LuLock, LuMapPin, LuShieldCheck } from 'react-icons/lu'
 import { useAuthStore } from '@/store/authStore'
+import { coverImageOf, formatPrice, getPriceRange } from '@/lib/format'
+import { Skeleton } from '@/components/ui/Feedback'
 import type { Property } from '@/types'
 
 interface Props {
   property: Property
 }
 
-function getPriceRange(property: Property): { min: number; max: number } | null {
-  const prices = (property.rooms ?? []).map((r) => parseFloat(r.price_per_bed))
-  if (!prices.length) return null
-  return { min: Math.min(...prices), max: Math.max(...prices) }
-}
-
-function formatPrice(n: number) {
-  return `₪${Math.round(n).toLocaleString()}`
+export function GenderPill({ value, className = '' }: { value: Property['gender_preference']; className?: string }) {
+  const { t } = useTranslation()
+  const styles = {
+    MALE: 'bg-sky-50 text-sky-700',
+    FEMALE: 'bg-pink-50 text-pink-700',
+    ANY: 'bg-slate-100 text-slate-600',
+  }
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${styles[value]} ${className}`}>
+      {t(`enums.genderPref.${value}`)}
+    </span>
+  )
 }
 
 export function PropertyCard({ property }: Props) {
   const { t } = useTranslation()
   const { user } = useAuthStore()
-  const coverImage = property.cover_image ?? property.images?.[0]?.image_url
-  const priceRange = getPriceRange(property)
+  const coverImage = coverImageOf(property)
+  const priceRange = getPriceRange(property.rooms)
+  const imageCount = property.images?.length ?? 0
+  const roomCount = property.rooms?.length ?? 0
 
   return (
     <Link
       to={`/listings/${property.id}`}
-      className="group block rounded-2xl overflow-hidden border border-gray-200 bg-white hover:shadow-lg transition-shadow"
+      className="group flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-white shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-lift"
     >
       {/* Image */}
-      <div className="relative h-48 bg-gray-100 overflow-hidden">
+      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
         {coverImage ? (
           <img
             src={coverImage}
             alt={property.title}
             loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-300 text-4xl">
-            🏠
+          <div className="flex size-full items-center justify-center text-slate-300">
+            <LuHouse className="size-12" />
           </div>
         )}
-        {/* Gender badge */}
-        {property.gender_preference !== 'ANY' && (
-          <span
-            className={`absolute top-3 inset-s-3 text-xs font-medium px-2 py-0.5 rounded-full ${property.gender_preference === 'MALE'
-              ? 'bg-blue-100 text-blue-700'
-              : 'bg-pink-100 text-pink-700'
-              }`}
-          >
-            {t(`enums.genderPref.${property.gender_preference}`)}
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/35 to-transparent" />
+
+        <span className="absolute top-3 start-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-xs font-bold text-emerald-700 shadow-sm backdrop-blur">
+          <LuShieldCheck className="size-3.5" />
+          {t('property.verified')}
+        </span>
+        <GenderPill value={property.gender_preference} className="absolute top-3 end-3 shadow-sm" />
+
+        {imageCount > 1 && (
+          <span className="absolute bottom-3 end-3 inline-flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-xs font-semibold text-white backdrop-blur">
+            <LuImages className="size-3.5" />
+            {imageCount}
           </span>
         )}
+        <span className="absolute bottom-3 start-3 rounded-full bg-white/95 px-2.5 py-0.5 text-xs font-bold text-slate-700 backdrop-blur">
+          {t(`enums.propertyType.${property.property_type}`)}
+        </span>
       </div>
 
       {/* Body */}
-      <div className="p-4 space-y-1">
-        {/* Badges row: type + group name */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="inline-block text-xs font-medium bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full">
-            {t(`enums.propertyType.${property.property_type}`)}
-          </span>
-          {property.group_name && (
-            <span className="inline-block text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full truncate max-w-[140px]">
-              🏢 {property.group_name}
-            </span>
+      <div className="flex flex-1 flex-col p-4">
+        {property.group_name && (
+          <p className="mb-1 truncate text-xs font-bold text-accent-600">{property.group_name}</p>
+        )}
+        <h3 className="line-clamp-1 text-base font-bold text-slate-900 group-hover:text-brand-600">{property.title}</h3>
+
+        <div className="mt-2 space-y-1 text-sm text-slate-500">
+          <p className="flex items-center gap-1.5">
+            <LuMapPin className="size-4 shrink-0 text-slate-400" />
+            <span className="truncate">{property.city}</span>
+          </p>
+          {property.nearby_university && (
+            <p className="flex items-center gap-1.5">
+              <LuGraduationCap className="size-4 shrink-0 text-slate-400" />
+              <span className="truncate">
+                {t(`enums.university.${property.nearby_university}`, { defaultValue: property.nearby_university })}
+              </span>
+            </p>
           )}
         </div>
 
-        <h3 className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 mt-1">
-          {property.title}
-        </h3>
-
-        <p className="text-xs text-gray-500 flex items-center gap-1">
-          <span>📍</span>
-          {property.city}
-        </p>
-
-        {property.nearby_university && (
-          <p className="text-xs text-indigo-600 flex items-center gap-1">
-            <span>🎓</span>
-            <span className="truncate">{t(`enums.university.${property.nearby_university}`, { defaultValue: property.nearby_university })}</span>
-          </p>
-        )}
-
-        {priceRange && (
-          user ? (
-            <p className="text-brand-600 font-bold text-sm pt-1">
-              {priceRange.min === priceRange.max
-                ? formatPrice(priceRange.min)
-                : `${formatPrice(priceRange.min)} – ${formatPrice(priceRange.max)}`}
-              <span className="text-gray-400 font-normal text-xs ms-1">
-                {t('property.perBed')}
-              </span>
-            </p>
+        <div className="flex-1" />
+        <div className="mt-4 flex items-end justify-between gap-2 border-t border-line pt-3">
+          {priceRange ? (
+            user ? (
+              <p className="leading-tight">
+                <span className="text-xs text-slate-400">{t('property.from')} </span>
+                <span className="text-lg font-extrabold text-slate-900">{formatPrice(priceRange.min)}</span>
+                <span className="block text-xs text-slate-400">{t('property.perBed')}</span>
+              </p>
+            ) : (
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500">
+                <LuLock className="size-3.5" />
+                {t('property.signInToSeePrices')}
+              </p>
+            )
           ) : (
-            <p className="text-sm pt-1 flex items-center gap-1 text-gray-400">
-              <span>🔒</span>
-              <span className="text-xs">{t('property.signInToSeePrices')}</span>
-            </p>
-          )
-        )}
-
-        {property.rooms && (
-          <p className="text-xs text-gray-400">
-            {property.rooms.length}{' '}
-            {property.rooms.length === 1 ? t('property.room') : t('property.rooms')}
-          </p>
-        )}
+            <span />
+          )}
+          {roomCount > 0 && (
+            <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-slate-500">
+              <LuBedDouble className="size-4" />
+              {roomCount} {roomCount === 1 ? t('property.room') : t('property.rooms')}
+            </span>
+          )}
+        </div>
       </div>
     </Link>
+  )
+}
+
+export function PropertyCardSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-3xl border border-line bg-white">
+      <Skeleton className="aspect-[4/3] rounded-none" />
+      <div className="space-y-3 p-4">
+        <Skeleton className="h-5 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-4 w-2/3" />
+        <div className="border-t border-line pt-3">
+          <Skeleton className="h-6 w-1/3" />
+        </div>
+      </div>
+    </div>
   )
 }

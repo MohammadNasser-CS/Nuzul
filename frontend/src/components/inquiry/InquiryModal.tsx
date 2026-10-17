@@ -1,15 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LuCalendarDays, LuCircleCheck, LuPhone, LuSend, LuUser } from 'react-icons/lu'
 import { inquiriesService } from '@/services/inquiries'
 import { useAuth } from '@/hooks/useAuth'
+import { ROOM_TYPE_ICONS } from '@/lib/amenities'
+import { formatPrice } from '@/lib/format'
+import { Modal } from '@/components/ui/Modal'
+import { Button, LinkButton } from '@/components/ui/Button'
+import { Field, Input, Textarea } from '@/components/ui/Form'
+import { Alert } from '@/components/ui/Feedback'
 import type { Room } from '@/types'
 
 interface Props {
   room: Room
+  propertyTitle?: string
   onClose: () => void
 }
 
-export function InquiryModal({ room, onClose }: Props) {
+export function InquiryModal({ room, propertyTitle, onClose }: Props) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [message, setMessage] = useState('')
@@ -17,24 +26,11 @@ export function InquiryModal({ room, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const overlayRef = useRef<HTMLDivElement>(null)
+  const TypeIcon = ROOM_TYPE_ICONS[room.room_type]
 
-  // Close on Escape
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const quickMessages = [t('inquiry.quick.available'), t('inquiry.quick.visit'), t('inquiry.quick.bills')]
 
-  // Lock body scroll
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
-
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
@@ -47,152 +43,149 @@ export function InquiryModal({ room, onClose }: Props) {
       setSuccess(true)
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string }; status?: number } }
-      if (e.response?.status === 429) {
-        setError(t('inquiry.alreadySent'))
-      } else if (e.response?.status === 400) {
-        setError(t('inquiry.roomUnavailable'))
-      } else {
-        setError(t('inquiry.error'))
-      }
+      if (e.response?.status === 429) setError(t('inquiry.alreadySent'))
+      else if (e.response?.status === 400) setError(t('inquiry.roomUnavailable'))
+      else setError(t('inquiry.error'))
     } finally {
       setLoading(false)
     }
   }
 
-  const price = Math.round(parseFloat(room.price_per_bed))
+  if (success) {
+    return (
+      <Modal open onClose={onClose} size="md" hideClose>
+        <div className="py-4 text-center">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 animate-scale-in">
+            <LuCircleCheck className="size-9" />
+          </div>
+          <h3 className="mt-4 text-xl font-extrabold text-slate-900">{t('inquiry.success')}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500">{t('inquiry.successText')}</p>
+
+          <ol className="mt-6 space-y-3 text-start">
+            {[t('inquiry.next.s1'), t('inquiry.next.s2'), t('inquiry.next.s3')].map((s, i) => (
+              <li key={i} className="flex items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
+                  {i + 1}
+                </span>
+                {s}
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-6 grid grid-cols-2 gap-2">
+            <Button variant="outline" onClick={onClose}>
+              {t('inquiry.close')}
+            </Button>
+            <LinkButton to="/dashboard" variant="primary">
+              {t('inquiry.viewMine')}
+            </LinkButton>
+          </div>
+        </div>
+      </Modal>
+    )
+  }
 
   return (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
-    >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">
-            {t('inquiry.title')}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-            aria-label="Close"
+    <Modal
+      open
+      onClose={onClose}
+      title={t('inquiry.title')}
+      description={t('inquiry.subtitle')}
+      icon={<LuSend className="rtl:-scale-x-100" />}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} className="flex-1">
+            {t('inquiry.cancel')}
+          </Button>
+          <Button
+            type="submit"
+            form="inquiry-form"
+            variant="accent"
+            loading={loading}
+            className="flex-[2]"
+            leftIcon={<LuSend className="size-4 rtl:-scale-x-100" />}
           >
-            ×
-          </button>
-        </div>
-
-        <div className="px-6 py-5">
-          {success ? (
-            /* ── Success state ─────────────────────────────────────────────── */
-            <div className="text-center py-4 space-y-3">
-              <div className="text-4xl">✅</div>
-              <h3 className="text-base font-semibold text-gray-900">
-                {t('inquiry.success')}
-              </h3>
-              <p className="text-sm text-gray-500">{t('inquiry.successText')}</p>
-              <button
-                onClick={onClose}
-                className="mt-2 w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
-              >
-                {t('inquiry.close')}
-              </button>
-            </div>
+            {loading ? t('inquiry.submitting') : t('inquiry.submit')}
+          </Button>
+        </>
+      }
+    >
+      <form id="inquiry-form" onSubmit={handleSubmit} className="space-y-5">
+        {/* Room summary */}
+        <div className="flex items-center gap-3 rounded-2xl border border-line p-3">
+          {room.images?.[0] ? (
+            <img src={room.images[0].image_url} alt="" className="size-14 rounded-xl object-cover" />
           ) : (
-            /* ── Form ──────────────────────────────────────────────────────── */
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Room summary */}
-              <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
-                <div className="w-10 h-10 rounded-lg bg-brand-100 flex items-center justify-center text-brand-600 text-lg">
-                  🛏
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">
-                    {t(`enums.roomType.${room.room_type}`)}
-                  </p>
-                  <p className="text-xs text-brand-600 font-semibold">
-                    ₪{price.toLocaleString()}
-                    <span className="text-gray-400 font-normal ms-1">
-                      {t('property.perBed')}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              <p className="text-xs text-gray-500">{t('inquiry.subtitle')}</p>
-
-              {/* Student contact preview — read-only */}
-              {(user?.full_name || user?.phone_number) && (
-                <div className="grid grid-cols-2 gap-2">
-                  {user.full_name && (
-                    <div className="bg-gray-50 rounded-lg px-3 py-2">
-                      <p className="text-[10px] text-gray-400 mb-0.5">{t('inquiry.yourName')}</p>
-                      <p className="text-sm font-medium text-gray-800 truncate">{user.full_name}</p>
-                    </div>
-                  )}
-                  {user.phone_number && (
-                    <div className="bg-gray-50 rounded-lg px-3 py-2">
-                      <p className="text-[10px] text-gray-400 mb-0.5">{t('inquiry.yourPhone')}</p>
-                      <p className="text-sm font-medium text-gray-800 truncate">{user.phone_number}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Desired move-in date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('inquiry.moveInDate')}
-                </label>
-                <input
-                  type="date"
-                  value={moveInDate}
-                  min={new Date().toISOString().split('T')[0]}
-                  onChange={(e) => setMoveInDate(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                />
-              </div>
-
-              {/* Message */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('inquiry.message')}
-                </label>
-                <textarea
-                  rows={3}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder={t('inquiry.messagePlaceholder')}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
-                />
-              </div>
-
-              {error && (
-                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
-                  {error}
-                </p>
-              )}
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-lg text-sm transition-colors"
-                >
-                  {t('inquiry.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
-                >
-                  {loading ? t('inquiry.submitting') : t('inquiry.submit')}
-                </button>
-              </div>
-            </form>
+            <span className="flex size-14 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+              <TypeIcon className="size-6" />
+            </span>
           )}
+          <div className="min-w-0 flex-1">
+            {propertyTitle && <p className="truncate text-xs text-slate-500">{propertyTitle}</p>}
+            <p className="font-bold text-slate-900">
+              {t('property.roomOfType', { type: t(`enums.roomType.${room.room_type}`) })}
+            </p>
+            <p className="text-sm">
+              <span className="font-extrabold text-accent-600">{formatPrice(room.price_per_bed)}</span>
+              <span className="ms-1 text-xs text-slate-400">{t('property.perBed')}</span>
+            </p>
+          </div>
         </div>
-      </div>
-    </div>
+
+        {/* Shared contact details */}
+        {(user?.full_name || user?.phone_number) && (
+          <div className="rounded-2xl bg-brand-50/60 p-3">
+            <p className="mb-2 text-xs font-bold text-brand-700">{t('inquiry.sharedDetails')}</p>
+            <div className="flex flex-wrap gap-2">
+              {user.full_name && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-700">
+                  <LuUser className="size-3.5 text-slate-400" />
+                  {user.full_name}
+                </span>
+              )}
+              {user.phone_number && (
+                <span dir="ltr" className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-700">
+                  <LuPhone className="size-3.5 text-slate-400" />
+                  {user.phone_number}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        <Field label={t('inquiry.moveInDate')} optional>
+          <Input
+            type="date"
+            icon={<LuCalendarDays />}
+            value={moveInDate}
+            min={new Date().toISOString().split('T')[0]}
+            onChange={(e) => setMoveInDate(e.target.value)}
+          />
+        </Field>
+
+        <Field label={t('inquiry.message')} optional>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {quickMessages.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => setMessage((m) => (m ? `${m}\n${q}` : q))}
+                className="rounded-full border border-line bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+              >
+                + {q}
+              </button>
+            ))}
+          </div>
+          <Textarea
+            rows={3}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder={t('inquiry.messagePlaceholder')}
+          />
+        </Field>
+
+        {error && <Alert tone="danger">{error}</Alert>}
+      </form>
+    </Modal>
   )
 }

@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LuImagePlus, LuLoaderCircle, LuStar, LuTrash2 } from 'react-icons/lu'
 import { imagesService } from '@/services/images'
+import { cn } from '@/lib/format'
+import { Alert } from '@/components/ui/Feedback'
 import type { PropertyImage } from '@/types'
 
 interface Props {
@@ -15,7 +18,9 @@ interface Props {
 export function ImageUpload({ entityId, entityType, images, onUploaded, onDeleted, maxImages }: Props) {
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
+  const [uploading, setUploading] = useState(0)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const isFirstUpload = images.length === 0
@@ -24,14 +29,15 @@ export function ImageUpload({ entityId, entityType, images, onUploaded, onDelete
   async function handleFiles(files: FileList | null) {
     if (!files?.length || !canUpload) return
     setError(null)
-    setUploading(true)
 
     const toUpload = Array.from(files).slice(0, maxImages ? maxImages - images.length : files.length)
+    setUploading(toUpload.length)
 
     for (let i = 0; i < toUpload.length; i++) {
       const file = toUpload[i]
       if (file.size > 5 * 1024 * 1024) {
         setError(t('imageUpload.fileTooLarge'))
+        setUploading((n) => n - 1)
         continue
       }
       try {
@@ -45,79 +51,97 @@ export function ImageUpload({ entityId, entityType, images, onUploaded, onDelete
       } catch {
         setError(t('imageUpload.uploadFailed'))
       }
+      setUploading((n) => n - 1)
     }
-    setUploading(false)
+    setUploading(0)
     if (inputRef.current) inputRef.current.value = ''
   }
 
   async function handleDelete(id: string) {
+    setDeletingId(id)
     try {
       await imagesService.delete(id)
       onDeleted(id)
     } catch {
       setError(t('imageUpload.deleteFailed'))
+    } finally {
+      setDeletingId(null)
     }
   }
 
   return (
     <div className="space-y-3">
-      {/* Upload zone */}
-      {canUpload && (
-        <div
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault()
-            handleFiles(e.dataTransfer.files)
-          }}
-          onClick={() => inputRef.current?.click()}
-          className="border-2 border-dashed border-gray-300 hover:border-brand-400 rounded-xl p-6 text-center cursor-pointer transition-colors"
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            className="hidden"
-            onChange={(e) => handleFiles(e.target.files)}
-          />
-          {uploading ? (
-            <p className="text-sm text-gray-500">{t('imageUpload.uploading')}</p>
-          ) : (
-            <>
-              <p className="text-2xl mb-2">📷</p>
-              <p className="text-sm font-medium text-gray-700">{t('imageUpload.clickOrDrag')}</p>
-              <p className="text-xs text-gray-400 mt-1">{t('imageUpload.hint')}</p>
-            </>
-          )}
-        </div>
-      )}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {images.map((img) => (
+          <div key={img.id} className="group relative aspect-square overflow-hidden rounded-2xl bg-slate-100">
+            <img src={img.image_url} alt="" className="size-full object-cover" />
+            {img.is_primary && (
+              <span className="absolute top-2 start-2 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[11px] font-bold text-accent-700 shadow-sm">
+                <LuStar className="size-3 fill-current" />
+                {t('imageUpload.primary')}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => handleDelete(img.id)}
+              disabled={deletingId === img.id}
+              title={t('imageUpload.delete')}
+              aria-label={t('imageUpload.delete')}
+              className="absolute top-2 end-2 flex size-8 items-center justify-center rounded-full bg-white/95 text-red-600 shadow-sm transition-opacity hover:bg-red-50 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
+            >
+              {deletingId === img.id ? <LuLoaderCircle className="size-4 animate-spin" /> : <LuTrash2 className="size-4" />}
+            </button>
+          </div>
+        ))}
 
-      {error && (
-        <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
-      )}
+        {Array.from({ length: uploading }).map((_, i) => (
+          <div key={`up-${i}`} className="flex aspect-square items-center justify-center rounded-2xl bg-slate-100">
+            <LuLoaderCircle className="size-6 animate-spin text-brand-500" />
+          </div>
+        ))}
 
-      {/* Image grid */}
-      {images.length > 0 && (
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-          {images.map((img) => (
-            <div key={img.id} className="relative group aspect-square rounded-lg overflow-hidden">
-              <img src={img.image_url} alt="" className="w-full h-full object-cover" />
-              {img.is_primary && (
-                <span className="absolute top-1 inset-s-1 text-xs bg-brand-600 text-white px-1.5 py-0.5 rounded-full">
-                  {t('imageUpload.primary')}
-                </span>
-              )}
-              <button
-                onClick={() => handleDelete(img.id)}
-                className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
-                title={t('imageUpload.delete')}
-              >
-                🗑
-              </button>
-            </div>
-          ))}
-        </div>
+        {canUpload && (
+          <button
+            type="button"
+            onDragOver={(e) => {
+              e.preventDefault()
+              setDragging(true)
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragging(false)
+              handleFiles(e.dataTransfer.files)
+            }}
+            onClick={() => inputRef.current?.click()}
+            className={cn(
+              'flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-4 text-center transition-colors',
+              images.length === 0 && uploading === 0 ? 'col-span-2 aspect-[2/1] sm:col-span-4 sm:aspect-[4/1]' : 'aspect-square',
+              dragging ? 'border-accent-500 bg-accent-50' : 'border-slate-300 bg-slate-50/50 hover:border-brand-400 hover:bg-brand-50/40',
+            )}
+          >
+            <span className="flex size-11 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-soft">
+              <LuImagePlus className="size-5.5" />
+            </span>
+            <span className="text-sm font-bold text-slate-700">{t('imageUpload.clickOrDrag')}</span>
+            {images.length === 0 && <span className="text-xs text-slate-400">{t('imageUpload.hint')}</span>}
+          </button>
+        )}
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        multiple
+        className="hidden"
+        onChange={(e) => handleFiles(e.target.files)}
+      />
+
+      {maxImages && (
+        <p className="text-xs text-slate-400">{t('imageUpload.counter', { count: images.length, max: maxImages })}</p>
       )}
+      {error && <Alert tone="danger">{error}</Alert>}
     </div>
   )
 }

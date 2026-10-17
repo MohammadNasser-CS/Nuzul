@@ -1,442 +1,113 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { LuArrowUpRight, LuBedDouble, LuCalendarDays, LuImages, LuPencil, LuPlus, LuTrash2, LuTriangleAlert } from 'react-icons/lu'
 import { landlordService } from '@/services/landlord'
 import { propertiesService } from '@/services/properties'
 import { ImageUpload } from '@/components/property/ImageUpload'
-import type { Property, PropertyImage, Room, RoomCreate, RoomUpdate } from '@/types'
-
-// ─── Room form data ────────────────────────────────────────────────────────────
-interface RoomFormData {
-  room_type: Room['room_type'] | ''
-  price_per_bed: string
-  number_of_beds: string
-  available_beds: string
-  available_from: string
-  description: string
-  has_internal_bathroom: boolean
-  has_internal_balcony: boolean
-  has_ac: boolean
-  has_office: boolean
-}
-
-const emptyForm: RoomFormData = {
-  room_type: '',
-  price_per_bed: '',
-  number_of_beds: '1',
-  available_beds: '1',
-  available_from: '',
-  description: '',
-  has_internal_bathroom: false,
-  has_internal_balcony: false,
-  has_ac: false,
-  has_office: false,
-}
-
-function roomToForm(room: Room): RoomFormData {
-  return {
-    room_type:            room.room_type,
-    price_per_bed:        String(Math.round(parseFloat(room.price_per_bed))),
-    number_of_beds:       String(room.number_of_beds),
-    available_beds:       String(room.available_beds),
-    available_from:       room.available_from?.slice(0, 10) ?? '',
-    description:          room.description ?? '',
-    has_internal_bathroom: room.has_internal_bathroom,
-    has_internal_balcony:  room.has_internal_balcony,
-    has_ac:               room.has_ac,
-    has_office:           room.has_office,
-  }
-}
-
-function validateForm(form: RoomFormData, t: (k: string) => string): string | null {
-  if (!form.room_type) return t('landlord.rooms.form.selectType')
-  const price = parseFloat(form.price_per_bed)
-  if (!form.price_per_bed || isNaN(price) || price <= 0)
-    return t('addProperty.rooms.form.invalidPrice')
-  const beds = parseInt(form.number_of_beds, 10)
-  if (isNaN(beds) || beds < 1)
-    return t('addProperty.rooms.form.invalidBeds')
-  const avail = parseInt(form.available_beds, 10)
-  if (isNaN(avail) || avail < 0 || avail > beds)
-    return t('addProperty.rooms.form.bedsError')
-  return null
-}
-
-// ─── Inline room form ──────────────────────────────────────────────────────────
-function RoomForm({
-  initial,
-  propertyId,
-  onSaved,
-  onCancel,
-}: {
-  initial?: Room
-  propertyId: string
-  onSaved: (room: Room) => void
-  onCancel: () => void
-}) {
-  const { t } = useTranslation()
-  const [form, setForm] = useState<RoomFormData>(initial ? roomToForm(initial) : emptyForm)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState<string | null>(null)
-
-  const set = (field: keyof RoomFormData, val: string | boolean) =>
-    setForm((f) => ({ ...f, [field]: val }))
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-    const err = validateForm(form, t)
-    if (err) { setError(err); return }
-    setError(null)
-    setLoading(true)
-    try {
-      if (initial) {
-        const payload: RoomUpdate = {
-          room_type:            form.room_type as Room['room_type'],
-          price_per_bed:        parseFloat(form.price_per_bed),
-          number_of_beds:       parseInt(form.number_of_beds, 10),
-          available_beds:       parseInt(form.available_beds, 10),
-          available_from:       form.available_from || undefined,
-          description:          form.description || undefined,
-          has_internal_bathroom: form.has_internal_bathroom,
-          has_internal_balcony:  form.has_internal_balcony,
-          has_ac:               form.has_ac,
-          has_office:           form.has_office,
-        }
-        const res = await landlordService.updateRoom(initial.id, payload)
-        onSaved(res.data)
-      } else {
-        const payload: RoomCreate = {
-          property_id:          propertyId,
-          room_type:            form.room_type as Room['room_type'],
-          price_per_bed:        parseFloat(form.price_per_bed),
-          number_of_beds:       parseInt(form.number_of_beds, 10),
-          available_beds:       parseInt(form.available_beds, 10),
-          available_from:       form.available_from || undefined,
-          description:          form.description || undefined,
-          has_internal_bathroom: form.has_internal_bathroom,
-          has_internal_balcony:  form.has_internal_balcony,
-          has_ac:               form.has_ac,
-          has_office:           form.has_office,
-        }
-        const res = await landlordService.createRoom(payload)
-        onSaved(res.data)
-      }
-    } catch {
-      setError(t('landlord.rooms.saveError'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <form
-      onSubmit={handleSave}
-      className="border border-brand-200 rounded-xl p-4 bg-brand-50 space-y-4"
-    >
-      <h4 className="text-sm font-semibold text-gray-800">
-        {initial ? t('landlord.rooms.editRoom') : t('landlord.rooms.addRoom')}
-      </h4>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Room type */}
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            {t('addProperty.rooms.form.type')} <span className="text-red-400">*</span>
-          </label>
-          <select
-            required
-            value={form.room_type}
-            onChange={(e) => set('room_type', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          >
-            <option value="" disabled>{t('addProperty.rooms.form.selectType')}</option>
-            <option value="SINGLE">{t('enums.roomType.SINGLE')}</option>
-            <option value="SHARED">{t('enums.roomType.SHARED')}</option>
-            <option value="STUDIO">{t('enums.roomType.STUDIO')}</option>
-          </select>
-        </div>
-
-        {/* Price */}
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            {t('addProperty.rooms.form.price')} <span className="text-red-400">*</span>
-          </label>
-          <input
-            required
-            type="number"
-            min={1}
-            value={form.price_per_bed}
-            onChange={(e) => set('price_per_bed', e.target.value)}
-            placeholder={t('addProperty.rooms.form.pricePlaceholder')}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          />
-        </div>
-
-        {/* Total beds */}
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            {t('addProperty.rooms.form.beds')}
-          </label>
-          <input
-            type="number"
-            min={1}
-            value={form.number_of_beds}
-            onChange={(e) => set('number_of_beds', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          />
-        </div>
-
-        {/* Available beds */}
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            {t('addProperty.rooms.form.availableBeds')}
-          </label>
-          <input
-            type="number"
-            min={0}
-            max={parseInt(form.number_of_beds) || 1}
-            value={form.available_beds}
-            onChange={(e) => set('available_beds', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          />
-        </div>
-
-        {/* Available from */}
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            {t('addProperty.rooms.form.availableFrom')}
-          </label>
-          <input
-            type="date"
-            value={form.available_from}
-            onChange={(e) => set('available_from', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          />
-        </div>
-      </div>
-
-      {/* Description */}
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          {t('addProperty.rooms.form.description')}
-        </label>
-        <input
-          type="text"
-          value={form.description}
-          onChange={(e) => set('description', e.target.value)}
-          placeholder={t('addProperty.rooms.form.descriptionPlaceholder')}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-        />
-      </div>
-
-      {/* Room amenities */}
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-2">
-          {t('addProperty.rooms.form.amenities')}
-        </label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {(
-            ['has_internal_bathroom', 'has_internal_balcony', 'has_ac', 'has_office'] as const
-          ).map((key) => {
-            const labelKey = key.replace('has_internal_', '').replace('has_', '')
-            return (
-              <label
-                key={key}
-                className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 cursor-pointer transition-colors text-xs ${
-                  form[key]
-                    ? 'border-brand-500 bg-white'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={form[key]}
-                  onChange={(e) => set(key, e.target.checked)}
-                  className="sr-only"
-                />
-                <span className="font-medium text-gray-700">
-                  {t(`property.amenities.${labelKey}`)}
-                </span>
-              </label>
-            )
-          })}
-        </div>
-      </div>
-
-      {error && <p className="text-xs text-red-600">{error}</p>}
-
-      <div className="flex gap-2 justify-end">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 rounded-lg border border-gray-200 transition-colors"
-        >
-          {t('addProperty.rooms.form.cancel')}
-        </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="text-sm bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          {loading ? t('addProperty.rooms.form.saving') : t('addProperty.rooms.form.save')}
-        </button>
-      </div>
-    </form>
-  )
-}
-
-// ─── Room image section ────────────────────────────────────────────────────────
-function RoomImageSection({ room }: { room: Room }) {
-  const { t } = useTranslation()
-  const [images, setImages] = useState<PropertyImage[]>(room.images ?? [])
-  const [open, setOpen]     = useState(false)
-
-  return (
-    <div className="mt-2">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="text-xs text-brand-600 hover:underline"
-      >
-        {open ? '▲' : '▼'} {t('landlord.rooms.images')} ({images.length})
-      </button>
-      {open && (
-        <div className="mt-2">
-          <ImageUpload
-            entityId={room.id}
-            entityType="ROOM"
-            images={images}
-            maxImages={5}
-            onUploaded={(img) => setImages((p) => [...p, img])}
-            onDeleted={(id) => setImages((p) => p.filter((i) => i.id !== id))}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
+import { RoomEditor } from '@/components/property/RoomEditor'
+import { Button, LinkButton } from '@/components/ui/Button'
+import { Alert, Badge, EmptyState, Skeleton } from '@/components/ui/Feedback'
+import { Field, Textarea } from '@/components/ui/Form'
+import { ConfirmDialog, Modal } from '@/components/ui/Modal'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { PropertyStatusBadge } from '@/lib/status'
+import { ROOM_AMENITIES, ROOM_TYPE_ICONS } from '@/lib/amenities'
+import { formatDate, formatPrice } from '@/lib/format'
+import type { Property, PropertyImage, Room } from '@/types'
 
 // ─── Room card ─────────────────────────────────────────────────────────────────
-function RoomCard({
+function RoomRow({
   room,
-  propertyId,
-  onUpdated,
-  onDeleted,
+  onEdit,
+  onDelete,
+  onPhotos,
+  disabled,
 }: {
   room: Room
-  propertyId: string
-  onUpdated: (room: Room) => void
-  onDeleted: (id: string) => void
+  onEdit: () => void
+  onDelete: () => void
+  onPhotos: () => void
+  disabled: boolean
 }) {
-  const { t } = useTranslation()
-  const [editing, setEditing]   = useState(false)
-  const [deleting, setDeleting] = useState(false)
-
-  async function handleDelete() {
-    if (!window.confirm(t('landlord.rooms.confirmDeleteRoom'))) return
-    setDeleting(true)
-    try {
-      await landlordService.deleteRoom(room.id)
-      onDeleted(room.id)
-    } catch {
-      alert(t('landlord.rooms.deleteError'))
-    } finally {
-      setDeleting(false)
-    }
-  }
-
-  if (editing) {
-    return (
-      <RoomForm
-        initial={room}
-        propertyId={propertyId}
-        onSaved={(updated) => { onUpdated(updated); setEditing(false) }}
-        onCancel={() => setEditing(false)}
-      />
-    )
-  }
+  const { t, i18n } = useTranslation()
+  const Icon = ROOM_TYPE_ICONS[room.room_type]
+  const images = room.images ?? []
+  const amenities = ROOM_AMENITIES.filter((a) => room[a.field])
 
   return (
-    <div className="border border-gray-200 rounded-xl p-4 bg-white space-y-2">
-      {/* Top row */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-            {t(`enums.roomType.${room.room_type}`)}
+    <div className="flex flex-col gap-4 rounded-3xl border border-line bg-white p-4 shadow-soft sm:flex-row">
+      {/* Photo */}
+      <button
+        type="button"
+        onClick={onPhotos}
+        className="group relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-2xl bg-slate-100 sm:aspect-square sm:w-36"
+      >
+        {images[0] ? (
+          <img src={images[0].image_url} alt="" className="size-full object-cover transition-transform group-hover:scale-105" />
+        ) : (
+          <span className="flex size-full flex-col items-center justify-center gap-1 text-slate-400">
+            <Icon className="size-7" />
+            <span className="text-xs font-semibold text-amber-600">{t('addProperty.rooms.noPhotos')}</span>
           </span>
-          <span className="text-sm font-semibold text-brand-600">
-            ₪{Math.round(parseFloat(room.price_per_bed)).toLocaleString()}
-          </span>
-          <span className="text-xs text-gray-400">{t('property.perBed')}</span>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full border ${
-              room.is_available
-                ? 'bg-green-50 text-green-700 border-green-200'
-                : 'bg-gray-50 text-gray-400 border-gray-200'
-            }`}
-          >
-            {room.is_available ? t('property.available') : t('property.unavailable')}
-          </span>
-        </div>
+        )}
+        <span className="absolute bottom-2 end-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-xs font-semibold text-white">
+          <LuImages className="size-3.5" />
+          {images.length}/5
+        </span>
+      </button>
 
-        <div className="flex gap-2 shrink-0">
-          <button
-            onClick={() => setEditing(true)}
-            className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
-          >
-            {t('landlord.rooms.editRoom')}
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors disabled:opacity-50"
-          >
-            {deleting ? '…' : t('landlord.rooms.deleteRoom')}
-          </button>
+      {/* Details */}
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-extrabold text-slate-900">
+            {t('property.roomOfType', { type: t(`enums.roomType.${room.room_type}`) })}
+          </p>
+          <Badge tone={room.is_available ? 'success' : 'neutral'} dot>
+            {room.is_available ? t('property.available') : t('property.fullyBooked')}
+          </Badge>
         </div>
+        <p className="mt-1 text-sm">
+          <span className="text-lg font-extrabold text-slate-900">{formatPrice(room.price_per_bed)}</span>
+          <span className="ms-1 text-slate-400">{t('property.perBed')}</span>
+        </p>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+          <span className="inline-flex items-center gap-1.5">
+            <LuBedDouble className="size-4" />
+            {t('property.bedsFree', { available: room.available_beds, total: room.number_of_beds })}
+          </span>
+          {room.available_from && (
+            <span className="inline-flex items-center gap-1.5">
+              <LuCalendarDays className="size-4" />
+              {formatDate(room.available_from, i18n.language)}
+            </span>
+          )}
+        </div>
+        {amenities.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {amenities.map(({ key, icon: AIcon }) => (
+              <span key={key} className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                <AIcon className="size-3.5" />
+                {t(`property.amenities.${key}`)}
+              </span>
+            ))}
+          </div>
+        )}
+        {room.description && <p className="mt-2 line-clamp-2 text-sm text-slate-500">{room.description}</p>}
       </div>
 
-      {/* Bed counts */}
-      <p className="text-xs text-gray-500">
-        {room.available_beds}/{room.number_of_beds} {t('property.bedsAvailable')}
-        {room.available_from && (
-          <span className="ms-2 text-gray-400">
-            · {t('property.availableFrom')} {new Date(room.available_from).toLocaleDateString()}
-          </span>
-        )}
-      </p>
-
-      {/* Description */}
-      {room.description && (
-        <p className="text-xs text-gray-400 italic">{room.description}</p>
-      )}
-
-      {/* Amenities pills */}
-      <div className="flex flex-wrap gap-1 pt-1">
-        {room.has_internal_bathroom && (
-          <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-            🚿 {t('property.amenities.bathroom')}
-          </span>
-        )}
-        {room.has_internal_balcony && (
-          <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-            🏞 {t('property.amenities.balcony')}
-          </span>
-        )}
-        {room.has_ac && (
-          <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-            ❄️ {t('property.amenities.ac')}
-          </span>
-        )}
-        {room.has_office && (
-          <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-            📚 {t('property.amenities.office')}
-          </span>
-        )}
+      {/* Actions */}
+      <div className="flex shrink-0 gap-2 sm:flex-col">
+        <Button variant="secondary" size="sm" onClick={onEdit} disabled={disabled} leftIcon={<LuPencil className="size-3.5" />} className="flex-1">
+          {t('landlord.rooms.editRoom')}
+        </Button>
+        <Button variant="outline" size="sm" onClick={onPhotos} disabled={disabled} leftIcon={<LuImages className="size-3.5" />} className="flex-1">
+          {t('landlord.rooms.photos')}
+        </Button>
+        <Button variant="danger-soft" size="sm" onClick={onDelete} disabled={disabled} leftIcon={<LuTrash2 className="size-3.5" />} className="flex-1">
+          {t('landlord.rooms.deleteRoom')}
+        </Button>
       </div>
-
-      {/* Images toggle */}
-      <RoomImageSection room={room} />
     </div>
   )
 }
@@ -444,158 +115,218 @@ function RoomCard({
 // ─── Main page ─────────────────────────────────────────────────────────────────
 export default function ManageRoomsPage() {
   const { id: propertyId } = useParams<{ id: string }>()
-  const { t, i18n } = useTranslation()
-  const bk = i18n.dir() === 'rtl' ? '→' : '←'
+  const { t } = useTranslation()
   const [property, setProperty] = useState<Property | null>(null)
-  const [rooms, setRooms]       = useState<Room[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [showAdd, setShowAdd]   = useState(false)
-  const [error, setError]       = useState<string | null>(null)
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [revisionNote, setRevisionNote] = useState('')
+  const [editing, setEditing] = useState<null | '__new__' | string>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Room | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [photosRoom, setPhotosRoom] = useState<Room | null>(null)
 
   useEffect(() => {
     if (!propertyId) return
     setLoading(true)
-    Promise.all([
-      landlordService.myProperties(),
-      landlordService.getRooms(propertyId),
-    ])
+    Promise.all([landlordService.myProperties(), landlordService.getRooms(propertyId)])
       .then(([propRes, roomsRes]) => {
-        const found = propRes.data.find((p) => p.id === propertyId) ?? null
-        setProperty(found)
+        setProperty(propRes.data.find((p) => p.id === propertyId) ?? null)
         setRooms(roomsRes.data)
       })
       .catch(() => setError(t('landlord.rooms.loadError')))
       .finally(() => setLoading(false))
   }, [propertyId, t])
 
-  // Called after any room mutation when the property was APPROVED (now PENDING).
-  // Stores the landlord's revision note so the admin can see it during re-review.
-  async function saveRevisionNote() {
-    if (!propertyId || !revisionNote.trim()) return
-    try {
-      await propertiesService.update(propertyId, { revision_note: revisionNote.trim() })
-    } catch {
-      // Non-critical — silently ignore (the room save succeeded)
+  // After any room mutation on an APPROVED property (which the backend resets to PENDING),
+  // store the landlord's revision note so the admin can see it during re-review.
+  async function afterMutation() {
+    if (property?.verification_status !== 'APPROVED') return
+    if (propertyId && revisionNote.trim()) {
+      try {
+        await propertiesService.update(propertyId, { revision_note: revisionNote.trim() })
+      } catch {
+        // Non-critical — the room change itself succeeded
+      }
     }
+    setProperty((p) => (p ? { ...p, verification_status: 'PENDING' } : p))
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    setActionError(null)
+    try {
+      await landlordService.deleteRoom(deleteTarget.id)
+      setRooms((prev) => prev.filter((r) => r.id !== deleteTarget.id))
+      await afterMutation()
+      setDeleteTarget(null)
+    } catch {
+      setActionError(t('landlord.rooms.deleteError'))
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  // Functional updates: ImageUpload may report several uploads from one stale closure
+  function updateRoomImages(roomId: string, update: (imgs: PropertyImage[]) => PropertyImage[]) {
+    setRooms((prev) => prev.map((r) => (r.id === roomId ? { ...r, images: update(r.images ?? []) } : r)))
+    setPhotosRoom((r) => (r && r.id === roomId ? { ...r, images: update(r.images ?? []) } : r))
   }
 
   if (!propertyId) return null
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      {/* Breadcrumb */}
-      <Link
-        to="/dashboard"
-        className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 mb-4"
-      >
-        {bk} {t('landlord.rooms.backToProperties')}
-      </Link>
+    <div className="mx-auto max-w-4xl px-4 py-8 animate-fade-in sm:px-6 lg:py-12">
+      <PageHeader
+        back={{ to: '/dashboard', label: t('landlord.rooms.backToProperties') }}
+        title={t('landlord.rooms.title')}
+        subtitle={
+          property && (
+            <span className="inline-flex flex-wrap items-center gap-2">
+              {property.title} · {property.city}
+              <PropertyStatusBadge status={property.verification_status} />
+            </span>
+          )
+        }
+        actions={
+          <>
+            {property?.verification_status === 'APPROVED' && (
+              <LinkButton to={`/listings/${property.id}`} variant="outline" rightIcon={<LuArrowUpRight className="size-4 rtl:-scale-x-100" />}>
+                {t('dashboard.view')}
+              </LinkButton>
+            )}
+            {editing !== '__new__' && (
+              <Button variant="accent" onClick={() => setEditing('__new__')} disabled={editing !== null} leftIcon={<LuPlus className="size-4" />}>
+                {t('landlord.rooms.addRoom')}
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t('landlord.rooms.title')}</h1>
-          {property && (
-            <p className="text-sm text-gray-500 mt-0.5">
-              {property.title}
-              <span className="text-gray-300 mx-1">·</span>
-              {property.city}
-            </p>
-          )}
-        </div>
-        {!showAdd && (
-          <button
-            onClick={() => setShowAdd(true)}
-            className="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors shrink-0"
-          >
-            + {t('landlord.rooms.addRoom')}
-          </button>
-        )}
-      </div>
-
-      {/* APPROVED→PENDING notice + revision note input */}
+      {/* APPROVED → PENDING notice + revision note */}
       {property?.verification_status === 'APPROVED' && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-3">
-          <p className="text-sm text-amber-700">⚠️ {t('landlord.rooms.approvedNotice')}</p>
-          <div>
-            <label className="block text-xs font-medium text-amber-800 mb-1">
-              {t('landlord.rooms.revisionNote')}
-            </label>
-            <textarea
+        <div className="mb-6 space-y-4 rounded-3xl border border-amber-200 bg-amber-50/70 p-5">
+          <div className="flex gap-3 text-sm text-amber-800">
+            <LuTriangleAlert className="mt-0.5 size-5 shrink-0" />
+            {t('landlord.rooms.approvedNotice')}
+          </div>
+          <Field label={t('landlord.rooms.revisionNote')} hint={t('landlord.rooms.revisionNoteHint')}>
+            <Textarea
               rows={2}
               value={revisionNote}
               onChange={(e) => setRevisionNote(e.target.value)}
               placeholder={t('landlord.rooms.revisionNotePlaceholder')}
-              className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
             />
-            <p className="text-xs text-amber-600 mt-1">💡 {t('landlord.rooms.revisionNoteHint')}</p>
-          </div>
+          </Field>
         </div>
       )}
+
+      {actionError && <Alert tone="danger" className="mb-4">{actionError}</Alert>}
 
       {loading ? (
         <div className="space-y-4">
           {[1, 2].map((i) => (
-            <div key={i} className="h-28 bg-gray-100 rounded-xl animate-pulse" />
+            <Skeleton key={i} className="h-40 rounded-3xl" />
           ))}
         </div>
       ) : error ? (
-        <p className="text-red-500 text-sm">{error}</p>
+        <Alert tone="danger">{error}</Alert>
       ) : (
         <div className="space-y-4">
-          {/* Add-room form */}
-          {showAdd && (
-            <RoomForm
+          {editing === '__new__' && (
+            <RoomEditor
               propertyId={propertyId}
-              onSaved={async (room) => {
-                setRooms((r) => [room, ...r])
-                setShowAdd(false)
-                if (property?.verification_status === 'APPROVED') await saveRevisionNote()
-                // Reflect the new PENDING status locally
-                setProperty((p) => p ? { ...p, verification_status: 'PENDING' } : p)
+              onDetailsSaved={() => void afterMutation()}
+              onSaved={(room, images) => {
+                setRooms((r) => [{ ...room, images }, ...r])
+                setEditing(null)
               }}
-              onCancel={() => setShowAdd(false)}
+              onCancel={() => setEditing(null)}
             />
           )}
 
-          {/* Room list */}
-          {rooms.length === 0 && !showAdd ? (
-            <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-2xl">
-              <p className="text-4xl mb-3">🛏</p>
-              <p className="text-gray-500 text-sm mb-3">{t('landlord.rooms.noRooms')}</p>
-              <button
-                onClick={() => setShowAdd(true)}
-                className="text-brand-600 hover:underline text-sm font-medium"
-              >
-                + {t('landlord.rooms.addRoom')}
-              </button>
-            </div>
+          {rooms.length === 0 && editing !== '__new__' ? (
+            <EmptyState
+              icon={<LuBedDouble />}
+              title={t('landlord.rooms.noRooms')}
+              description={t('landlord.rooms.noRoomsHint')}
+              action={
+                <Button variant="accent" onClick={() => setEditing('__new__')} leftIcon={<LuPlus className="size-4" />}>
+                  {t('landlord.rooms.addRoom')}
+                </Button>
+              }
+            />
           ) : (
-            rooms.map((room) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                propertyId={propertyId}
-                onUpdated={async (updated) => {
-                  setRooms((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
-                  if (property?.verification_status === 'APPROVED') {
-                    await saveRevisionNote()
-                    setProperty((p) => p ? { ...p, verification_status: 'PENDING' } : p)
-                  }
-                }}
-                onDeleted={async (id) => {
-                  setRooms((prev) => prev.filter((r) => r.id !== id))
-                  if (property?.verification_status === 'APPROVED') {
-                    await saveRevisionNote()
-                    setProperty((p) => p ? { ...p, verification_status: 'PENDING' } : p)
-                  }
-                }}
-              />
-            ))
+            rooms.map((room) =>
+              editing === room.id ? (
+                <RoomEditor
+                  key={room.id}
+                  propertyId={propertyId}
+                  initial={room}
+                  initialImages={room.images ?? []}
+                  onDetailsSaved={() => void afterMutation()}
+                  onSaved={(updated, images) => {
+                    setRooms((prev) => prev.map((r) => (r.id === updated.id ? { ...updated, images } : r)))
+                    setEditing(null)
+                  }}
+                  onCancel={() => setEditing(null)}
+                />
+              ) : (
+                <RoomRow
+                  key={room.id}
+                  room={room}
+                  disabled={editing !== null}
+                  onEdit={() => setEditing(room.id)}
+                  onDelete={() => setDeleteTarget(room)}
+                  onPhotos={() => setPhotosRoom(room)}
+                />
+              ),
+            )
           )}
         </div>
       )}
+
+      {/* Photos manager */}
+      <Modal
+        open={photosRoom !== null}
+        onClose={() => setPhotosRoom(null)}
+        title={t('landlord.rooms.images')}
+        description={photosRoom ? t('property.roomOfType', { type: t(`enums.roomType.${photosRoom.room_type}`) }) : undefined}
+        icon={<LuImages />}
+        size="lg"
+        footer={
+          <Button variant="primary" className="ms-auto" onClick={() => setPhotosRoom(null)}>
+            {t('inquiry.close')}
+          </Button>
+        }
+      >
+        {photosRoom && (
+          <ImageUpload
+            entityId={photosRoom.id}
+            entityType="ROOM"
+            images={photosRoom.images ?? []}
+            maxImages={5}
+            onUploaded={(img) => updateRoomImages(photosRoom.id, (imgs) => [...imgs, img])}
+            onDeleted={(id) => updateRoomImages(photosRoom.id, (imgs) => imgs.filter((i) => i.id !== id))}
+          />
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t('landlord.rooms.confirmDeleteTitle')}
+        description={t('landlord.rooms.confirmDeleteRoom')}
+        confirmLabel={t('landlord.rooms.deleteRoom')}
+        cancelLabel={t('addProperty.rooms.form.cancel')}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+        icon={<LuTrash2 className="text-red-500" />}
+      />
     </div>
   )
 }

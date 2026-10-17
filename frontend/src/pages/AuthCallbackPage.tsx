@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { authService } from '../services/auth'
 import { useAuthStore } from '../store/authStore'
 import { getPostLoginRoute } from '../hooks/useAuth'
+import { PageLoader } from '@/components/layout/PageLoader'
 
 export default function AuthCallbackPage() {
   const { t } = useTranslation()
@@ -27,9 +28,5 @@ export default function AuthCallbackPage() {
     })
   }, [navigate])
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <p className="text-gray-400 text-sm">{t('common.signingIn')}</p>
-    </div>
-  )
+  return <PageLoader label={t('common.signingIn')} />
 }

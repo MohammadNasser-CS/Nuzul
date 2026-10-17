@@ -1,40 +1,142 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import {
+  LuArrowLeft,
+  LuBedDouble,
+  LuBuilding2,
+  LuCheck,
+  LuDoorOpen,
+  LuGraduationCap,
+  LuGrid2X2,
+  LuHouse,
+  LuLayers,
+  LuLock,
+  LuMapPin,
+  LuShieldCheck,
+  LuUsers,
+  LuX,
+} from 'react-icons/lu'
 import { listingsService } from '@/services/properties'
 import { ImageGallery } from '@/components/property/ImageGallery'
 import { RoomCard } from '@/components/property/RoomCard'
 import { StaticMapView } from '@/components/map/MapPicker'
 import { InquiryModal } from '@/components/inquiry/InquiryModal'
+import { LinkButton } from '@/components/ui/Button'
+import { EmptyState, Skeleton } from '@/components/ui/Feedback'
 import { useAuth } from '@/hooks/useAuth'
+import { PROPERTY_AMENITIES, PROPERTY_TYPE_ICONS } from '@/lib/amenities'
+import { cn, formatPrice } from '@/lib/format'
 import type { Property, Room } from '@/types'
 
-function AmenityBadge({ active, label }: { active: boolean; label: string }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border ${active
-          ? 'bg-brand-50 border-brand-200 text-brand-700'
-          : 'bg-gray-50 border-gray-200 text-gray-400 line-through'
-        }`}
+// ─── Photo mosaic ──────────────────────────────────────────────────────────────
+function PhotoMosaic({ images, title, onOpen }: { images: string[]; title: string; onOpen: (i: number) => void }) {
+  const { t } = useTranslation()
+
+  if (images.length === 0) {
+    return (
+      <div className="flex aspect-[16/7] items-center justify-center rounded-3xl bg-gradient-to-br from-slate-100 to-warm-100 text-slate-300">
+        <LuHouse className="size-16" />
+      </div>
+    )
+  }
+
+  const tile = 'relative overflow-hidden bg-slate-100 group cursor-pointer'
+  const img = 'size-full object-cover transition-transform duration-500 group-hover:scale-105'
+  const showAllBtn = images.length > 1 && (
+    <button
+      onClick={() => onOpen(0)}
+      className="absolute bottom-4 end-4 inline-flex items-center gap-2 rounded-xl bg-white/95 px-4 py-2 text-sm font-bold text-slate-800 shadow-lift backdrop-blur transition-colors hover:bg-white"
     >
-      {label}
-    </span>
+      <LuGrid2X2 className="size-4" />
+      {t('property.showAllPhotos', { count: images.length })}
+    </button>
+  )
+
+  // Mobile: single swipe-less hero with counter
+  const mobile = (
+    <div className={cn(tile, 'aspect-[4/3] rounded-3xl sm:hidden')} onClick={() => onOpen(0)}>
+      <img src={images[0]} alt={title} className={img} />
+      {images.length > 1 && (
+        <span className="absolute bottom-3 end-3 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white">
+          1 / {images.length}
+        </span>
+      )}
+    </div>
+  )
+
+  let desktop
+  if (images.length === 1) {
+    desktop = (
+      <div className={cn(tile, 'h-[440px] rounded-3xl')} onClick={() => onOpen(0)}>
+        <img src={images[0]} alt={title} className={img} />
+      </div>
+    )
+  } else if (images.length === 2) {
+    desktop = (
+      <div className="relative grid h-[440px] grid-cols-2 gap-2 overflow-hidden rounded-3xl">
+        {images.slice(0, 2).map((src, i) => (
+          <div key={i} className={tile} onClick={() => onOpen(i)}>
+            <img src={src} alt={i === 0 ? title : ''} className={img} />
+          </div>
+        ))}
+        {showAllBtn}
+      </div>
+    )
+  } else {
+    const rest = images.length >= 5 ? images.slice(1, 5) : images.slice(1, 3)
+    desktop = (
+      <div className="relative grid h-[440px] grid-cols-4 grid-rows-2 gap-2 overflow-hidden rounded-3xl">
+        <div className={cn(tile, 'col-span-2 row-span-2')} onClick={() => onOpen(0)}>
+          <img src={images[0]} alt={title} className={img} />
+        </div>
+        {rest.map((src, i) => (
+          <div key={i} className={cn(tile, rest.length === 2 && 'col-span-2')} onClick={() => onOpen(i + 1)}>
+            <img src={src} alt="" className={img} />
+          </div>
+        ))}
+        {showAllBtn}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {mobile}
+      <div className="hidden sm:block">{desktop}</div>
+    </>
   )
 }
 
+function Fact({ icon: Icon, label, value }: { icon: typeof LuHouse; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-line bg-white p-3.5">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+        <Icon className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs text-slate-500">{label}</p>
+        <p className="truncate text-sm font-bold text-slate-900">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
 export default function PropertyDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const highlightRoomId = searchParams.get('room') ?? null
-  const { t, i18n } = useTranslation()
-  const bk = i18n.dir() === 'rtl' ? '→' : '←'
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [property, setProperty] = useState<Property | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showGallery, setShowGallery] = useState(false)
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null)
   const [contactRoom, setContactRoom] = useState<Room | null>(null)
+  const [expanded, setExpanded] = useState(false)
   const highlightRef = useRef<HTMLDivElement>(null)
+  const roomsRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     if (!id) return
@@ -50,239 +152,309 @@ export default function PropertyDetailPage() {
   useEffect(() => {
     if (!highlightRoomId || !property || !highlightRef.current) return
     const el = highlightRef.current
-    // Small delay so the DOM has fully painted the card
-    const timer = setTimeout(() => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 300)
+    const timer = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)
     return () => clearTimeout(timer)
   }, [highlightRoomId, property])
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 animate-pulse space-y-4">
-        <div className="h-72 bg-gray-200 rounded-2xl" />
-        <div className="h-6 bg-gray-200 rounded w-1/2" />
-        <div className="h-4 bg-gray-200 rounded w-1/3" />
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-9 w-2/3" />
+        <Skeleton className="aspect-[4/3] w-full rounded-3xl sm:aspect-auto sm:h-[440px]" />
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="space-y-4 lg:col-span-2">
+            <Skeleton className="h-24 w-full rounded-2xl" />
+            <Skeleton className="h-40 w-full rounded-2xl" />
+          </div>
+          <Skeleton className="h-64 w-full rounded-3xl" />
+        </div>
       </div>
     )
   }
 
   if (error || !property) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 text-center">
-        <p className="text-5xl mb-4">🏚</p>
-        <p className="text-gray-500">{error ?? t('property.notFound')}</p>
-        <Link to="/listings" className="mt-4 inline-block text-brand-600 hover:underline text-sm">
-          {bk} {t('listings.title')}
-        </Link>
+      <div className="mx-auto max-w-2xl px-4 py-16">
+        <EmptyState
+          icon={<LuHouse />}
+          title={error ?? t('property.notFound')}
+          description={t('property.notFoundHint')}
+          action={
+            <LinkButton to="/listings" variant="primary" leftIcon={<LuArrowLeft className="size-4 rtl:rotate-180" />}>
+              {t('property.backToListings')}
+            </LinkButton>
+          }
+        />
       </div>
     )
   }
 
   const images = property.images?.map((i) => i.image_url) ?? []
-  if (property.cover_image && !images.includes(property.cover_image)) {
-    images.unshift(property.cover_image)
-  }
+  if (property.cover_image && !images.includes(property.cover_image)) images.unshift(property.cover_image)
 
-  const availableRooms = (property.rooms ?? []).filter((r) => r.is_available && r.is_active)
   const allRooms = property.rooms ?? []
+  const availableRooms = allRooms.filter((r) => r.is_available && r.is_active)
+  const freeBeds = availableRooms.reduce((sum, r) => sum + r.available_beds, 0)
+  const minPrice = availableRooms.length
+    ? Math.min(...availableRooms.map((r) => parseFloat(r.price_per_bed)))
+    : null
+  const isStudent = user?.role === 'STUDENT'
+  const TypeIcon = PROPERTY_TYPE_ICONS[property.property_type]
+  const longDescription = (property.description?.length ?? 0) > 320
+
+  const scrollToRooms = () => roomsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+  const priceBlock = user ? (
+    minPrice !== null ? (
+      <p>
+        <span className="text-xs font-semibold text-slate-500">{t('property.priceFrom')}</span>
+        <span className="block text-3xl font-extrabold text-slate-900">{formatPrice(minPrice)}</span>
+        <span className="text-sm text-slate-500">{t('property.perBed')}</span>
+      </p>
+    ) : (
+      <p className="text-sm font-semibold text-slate-500">{t('property.noAvailability')}</p>
+    )
+  ) : (
+    <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
+      <LuLock className="size-4" />
+      {t('property.signInToSeePrices')}
+    </p>
+  )
+
+  const cta = !user ? (
+    <LinkButton to="/login" variant="accent" block size="lg">
+      {t('property.signInToRequest')}
+    </LinkButton>
+  ) : isStudent && availableRooms.length > 0 ? (
+    <button
+      onClick={scrollToRooms}
+      className="flex h-13 w-full items-center justify-center rounded-xl bg-accent-600 text-base font-bold text-white shadow-lg shadow-accent-700/20 transition-colors hover:bg-accent-700"
+    >
+      {t('property.chooseRoom')}
+    </button>
+  ) : null
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-      {/* Breadcrumb */}
-      <nav className="text-xs text-gray-400 mb-4 flex items-center gap-1">
-        <Link to="/listings" className="hover:text-brand-600">{t('listings.title')}</Link>
-        <span>/</span>
-        <span className="text-gray-600 truncate max-w-xs">{property.title}</span>
-      </nav>
+    <div className="mx-auto max-w-7xl px-4 pt-6 animate-fade-in sm:px-6 lg:px-8">
+      {/* Back */}
+      <Link
+        to="/listings"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition-colors hover:text-brand-600"
+      >
+        <LuArrowLeft className="size-4 rtl:rotate-180" />
+        {t('property.backToListings')}
+      </Link>
 
-      {/* Image gallery inline */}
-      {images.length > 0 ? (
-        <div
-          className="cursor-pointer rounded-2xl overflow-hidden mb-6"
-          onClick={() => setShowGallery(true)}
-        >
-          <div className="relative">
-            <img
-              src={images[0]}
-              alt={property.title}
-              className="w-full h-72 sm:h-96 object-cover"
-            />
-            {images.length > 1 && (
-              <div className="absolute bottom-3 inset-e-3 flex gap-1.5">
-                {images.slice(1, 4).map((src, i) => (
-                  <img key={i} src={src} alt="" className="w-16 h-12 object-cover rounded-lg border-2 border-white" />
-                ))}
-                {images.length > 4 && (
-                  <div className="w-16 h-12 rounded-lg border-2 border-white bg-black/60 flex items-center justify-center text-white text-xs font-medium">
-                    +{images.length - 4}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+      {/* Title */}
+      <div className="mb-5">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+            <LuShieldCheck className="size-3.5" />
+            {t('property.verified')}
+          </span>
+          {property.group_name && (
+            <span className="rounded-full bg-accent-50 px-2.5 py-1 text-xs font-bold text-accent-700">{property.group_name}</span>
+          )}
         </div>
-      ) : (
-        <div className="h-64 bg-gray-100 rounded-2xl flex items-center justify-center mb-6 text-gray-300 text-5xl">
-          🏠
+        <h1 className="text-2xl font-extrabold text-slate-900 sm:text-3xl lg:text-4xl">{property.title}</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
+          <span className="inline-flex items-center gap-1.5">
+            <LuMapPin className="size-4" />
+            {property.formatted_address ?? `${property.city}, ${property.country}`}
+          </span>
+          {property.nearby_university && (
+            <span className="inline-flex items-center gap-1.5">
+              <LuGraduationCap className="size-4" />
+              {t(`enums.university.${property.nearby_university}`, { defaultValue: property.nearby_university })}
+            </span>
+          )}
         </div>
+      </div>
+
+      <PhotoMosaic images={images} title={property.title} onOpen={setGalleryIndex} />
+
+      {galleryIndex !== null && images.length > 0 && (
+        <ImageGallery images={images} startIndex={galleryIndex} onClose={() => setGalleryIndex(null)} />
       )}
 
-      {showGallery && images.length > 0 && (
-        <ImageGallery
-          images={images}
-          onClose={() => setShowGallery(false)}
-        />
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left: main content */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Title + badges */}
-          <div>
-            <div className="flex flex-wrap gap-2 mb-2">
-              <span className="text-xs font-medium bg-brand-50 text-brand-700 px-2.5 py-1 rounded-full">
-                {t(`enums.propertyType.${property.property_type}`)}
-              </span>
-              <span
-                className={`text-xs font-medium px-2.5 py-1 rounded-full ${property.gender_preference === 'ANY'
-                    ? 'bg-gray-100 text-gray-600'
-                    : property.gender_preference === 'MALE'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'bg-pink-50 text-pink-700'
-                  }`}
-              >
-                {t(`enums.genderPref.${property.gender_preference}`)}
-              </span>
-              {property.group_name && (
-                <span className="text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full">
-                  🏢 {property.group_name}
-                </span>
-              )}
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">{property.title}</h1>
-            <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
-              <span>📍</span>
-              {property.formatted_address ?? `${property.city}, ${property.country}`}
-            </p>
-            {property.nearby_university && (
-              <p className="text-indigo-600 text-sm mt-1 flex items-center gap-1">
-                <span>🎓</span>
-                {t(`enums.university.${property.nearby_university}`, { defaultValue: property.nearby_university })}
-              </p>
-            )}
+      <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-3">
+        {/* ── Main column ─────────────────────────────────────────────── */}
+        <div className="space-y-10 lg:col-span-2">
+          {/* Quick facts */}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Fact icon={TypeIcon} label={t('property.facts.type')} value={t(`enums.propertyType.${property.property_type}`)} />
+            <Fact icon={LuUsers} label={t('property.facts.for')} value={t(`enums.genderPref.${property.gender_preference}`)} />
+            <Fact icon={LuDoorOpen} label={t('property.facts.rooms')} value={String(allRooms.length)} />
+            <Fact icon={LuBedDouble} label={t('property.facts.freeBeds')} value={String(freeBeds)} />
           </div>
 
           {/* Description */}
           {property.description && (
             <section>
-              <h2 className="text-base font-semibold text-gray-800 mb-2">{t('property.about')}</h2>
-              <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">
+              <h2 className="mb-3 text-xl font-extrabold text-slate-900">{t('property.about')}</h2>
+              <p
+                className={cn(
+                  'whitespace-pre-wrap text-[15px] leading-loose text-slate-600',
+                  longDescription && !expanded && 'line-clamp-5',
+                )}
+              >
                 {property.description}
               </p>
+              {longDescription && (
+                <button
+                  onClick={() => setExpanded((e) => !e)}
+                  className="mt-2 text-sm font-bold text-brand-600 underline underline-offset-4 hover:text-brand-700"
+                >
+                  {expanded ? t('common.showLess') : t('common.showMore')}
+                </button>
+              )}
             </section>
           )}
 
           {/* Amenities */}
           <section>
-            <h2 className="text-base font-semibold text-gray-800 mb-3">{t('property.amenitiesTitle')}</h2>
-            <div className="flex flex-wrap gap-2">
-              <AmenityBadge active={property.has_gas} label={t('property.amenities.gas')} />
-              <AmenityBadge active={property.has_electricity} label={t('property.amenities.electricity')} />
-              <AmenityBadge active={property.has_water} label={t('property.amenities.water')} />
-              <AmenityBadge active={property.has_internet} label={t('property.amenities.internet')} />
+            <h2 className="mb-4 text-xl font-extrabold text-slate-900">{t('property.amenitiesTitle')}</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {PROPERTY_AMENITIES.map(({ field, key, icon: Icon }) => {
+                const on = property[field]
+                return (
+                  <div
+                    key={key}
+                    className={cn(
+                      'flex items-center gap-3 rounded-2xl border p-3.5',
+                      on ? 'border-line bg-white' : 'border-dashed border-line bg-transparent',
+                    )}
+                  >
+                    <Icon className={cn('size-5', on ? 'text-brand-600' : 'text-slate-300')} />
+                    <span className={cn('flex-1 text-sm font-semibold', on ? 'text-slate-800' : 'text-slate-400 line-through')}>
+                      {t(`property.amenities.${key}`)}
+                    </span>
+                    {on ? <LuCheck className="size-4 text-emerald-500" /> : <LuX className="size-4 text-slate-300" />}
+                  </div>
+                )
+              })}
             </div>
           </section>
 
           {/* Rooms */}
-          <section>
-            <h2 className="text-base font-semibold text-gray-800 mb-1">
-              {t('property.roomsTitle')}
-            </h2>
-            <p className="text-xs text-gray-400 mb-4">
-              {availableRooms.length} {t('property.availableRoomsCount')} · {allRooms.length} {t('property.totalRoomsCount')}
-            </p>
+          <section ref={roomsRef} className="scroll-mt-24">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+              <h2 className="text-xl font-extrabold text-slate-900">{t('property.roomsTitle')}</h2>
+              <p className="text-sm text-slate-500">
+                {t('property.roomsSummary', { available: availableRooms.length, total: allRooms.length })}
+              </p>
+            </div>
 
             {allRooms.length === 0 ? (
-              <p className="text-sm text-gray-400">{t('property.noRooms')}</p>
+              <EmptyState icon={<LuBedDouble />} title={t('property.noRooms')} />
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 {allRooms.map((room) => {
                   const isHighlighted = room.id === highlightRoomId
                   return (
                     <div key={room.id} ref={isHighlighted ? highlightRef : null}>
-                      <RoomCard
-                        room={room}
-                        highlighted={isHighlighted}
-                        onContact={user?.role === 'STUDENT' ? setContactRoom : undefined}
-                      />
+                      <RoomCard room={room} highlighted={isHighlighted} onContact={isStudent ? setContactRoom : undefined} />
                     </div>
                   )
                 })}
               </div>
             )}
           </section>
+
+          {/* Location */}
+          <section>
+            <h2 className="mb-4 text-xl font-extrabold text-slate-900">{t('property.location')}</h2>
+            <StaticMapView lat={property.latitude} lng={property.longitude} title={property.title} />
+            {(property.building_name || property.building_number || property.floor_number !== null) && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {property.building_name && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-sm text-slate-600">
+                    <LuBuilding2 className="size-4 text-slate-400" />
+                    {t('property.buildingName')}: <b className="text-slate-800">{property.building_name}</b>
+                  </span>
+                )}
+                {property.building_number && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-sm text-slate-600">
+                    #{' '}
+                    {t('property.buildingNumber')}: <b className="text-slate-800">{property.building_number}</b>
+                  </span>
+                )}
+                {property.floor_number !== null && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-sm text-slate-600">
+                    <LuLayers className="size-4 text-slate-400" />
+                    {t('property.floor')}: <b className="text-slate-800">{property.floor_number}</b>
+                  </span>
+                )}
+              </div>
+            )}
+          </section>
         </div>
 
-        {/* Right: sidebar */}
-        <div className="space-y-5">
-          {/* Price summary card */}
-          {availableRooms.length > 0 && (
-            <div className="border border-gray-200 rounded-2xl p-5 bg-white sticky top-6">
-              {user ? (
-                <>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">
-                    {t('property.priceFrom')}
-                  </p>
-                  <p className="text-2xl font-bold text-brand-600">
-                    ₪{Math.round(Math.min(...availableRooms.map((r) => parseFloat(r.price_per_bed)))).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-400">{t('property.perBed')}</p>
-                </>
-              ) : (
-                <Link
-                  to="/login"
-                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-brand-600 transition-colors"
-                >
-                  <span>🔒</span>
-                  <span>{t('property.signInToSeePrices')}</span>
-                </Link>
-              )}
-              <p className="text-sm text-gray-500 mt-3">
-                {availableRooms.length} {t('property.availableRoomsCount')}
-              </p>
+        {/* ── Sidebar ─────────────────────────────────────────────────── */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-24 space-y-4">
+            <div className="rounded-3xl border border-line bg-white p-6 shadow-lift">
+              {priceBlock}
+              <div className="my-5 flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                <LuBedDouble className="size-4.5" />
+                {t('property.bedsLeft', { count: freeBeds })}
+              </div>
+              {cta}
+              <ol className="mt-6 space-y-3 border-t border-line pt-5">
+                {[t('property.how.s1'), t('property.how.s2'), t('property.how.s3')].map((s, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm text-slate-600">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-bold text-brand-700">
+                      {i + 1}
+                    </span>
+                    {s}
+                  </li>
+                ))}
+              </ol>
             </div>
-          )}
-
-          {/* Map */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('property.location')}</h3>
-            <StaticMapView lat={property.latitude} lng={property.longitude} title={property.title} />
+            <div className="flex items-start gap-3 rounded-2xl border border-line bg-white p-4 text-sm text-slate-600">
+              <LuShieldCheck className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+              {t('property.trustNote')}
+            </div>
           </div>
+        </aside>
+      </div>
 
-          {/* Building details */}
-          {(property.building_name || property.building_number || property.floor_number) && (
-            <div className="border border-gray-100 rounded-xl p-4 bg-gray-50 text-sm space-y-1">
-              {property.building_name && (
-                <p className="text-gray-600"><span className="font-medium">{t('property.buildingName')}:</span> {property.building_name}</p>
-              )}
-              {property.building_number && (
-                <p className="text-gray-600"><span className="font-medium">{t('property.buildingNumber')}:</span> {property.building_number}</p>
-              )}
-              {property.floor_number !== null && (
-                <p className="text-gray-600"><span className="font-medium">{t('property.floor')}:</span> {property.floor_number}</p>
-              )}
-            </div>
-          )}
+      {/* ── Mobile booking bar ────────────────────────────────────────── */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 px-4 py-3 backdrop-blur-xl lg:hidden">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+          <div className="min-w-0">
+            {user && minPrice !== null ? (
+              <p className="leading-tight">
+                <span className="text-lg font-extrabold text-slate-900">{formatPrice(minPrice)}</span>
+                <span className="ms-1 text-xs text-slate-500">{t('property.perBed')}</span>
+              </p>
+            ) : !user ? (
+              <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600">
+                <LuLock className="size-4" />
+                {t('property.signInToSeePricesShort')}
+              </p>
+            ) : null}
+            <p className="text-xs text-emerald-600">{t('property.bedsLeft', { count: freeBeds })}</p>
+          </div>
+          {!user ? (
+            <LinkButton to="/login" variant="accent" className="shrink-0">
+              {t('nav.signIn')}
+            </LinkButton>
+          ) : isStudent && availableRooms.length > 0 ? (
+            <button
+              onClick={scrollToRooms}
+              className="h-11 shrink-0 rounded-xl bg-accent-600 px-5 text-sm font-bold text-white hover:bg-accent-700"
+            >
+              {t('property.chooseRoom')}
+            </button>
+          ) : null}
         </div>
       </div>
 
-      {/* Inquiry modal — only rendered when a student clicks Contact */}
+      {/* Inquiry modal — only rendered when a student clicks Request */}
       {contactRoom && (
-        <InquiryModal
-          room={contactRoom}
-          onClose={() => setContactRoom(null)}
-        />
+        <InquiryModal room={contactRoom} propertyTitle={property.title} onClose={() => setContactRoom(null)} />
       )}
     </div>
   )

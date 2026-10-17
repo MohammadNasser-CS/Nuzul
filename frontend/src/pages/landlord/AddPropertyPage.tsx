@@ -1,172 +1,204 @@
 import { useState } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import {
+  LuArrowLeft,
+  LuArrowRight,
+  LuBedDouble,
+  LuCheck,
+  LuDoorOpen,
+  LuEye,
+  LuImages,
+  LuLayoutDashboard,
+  LuPencil,
+  LuPlus,
+  LuSend,
+  LuSparkles,
+  LuUsers,
+} from 'react-icons/lu'
 import { propertiesService } from '@/services/properties'
 import { landlordService } from '@/services/landlord'
 import { MapPicker } from '@/components/map/MapPicker'
 import { ImageUpload } from '@/components/property/ImageUpload'
+import { RoomEditor } from '@/components/property/RoomEditor'
+import { Button, LinkButton } from '@/components/ui/Button'
+import { ChoiceCard, Field, Input, Select, Textarea } from '@/components/ui/Form'
+import { Alert, Badge } from '@/components/ui/Feedback'
+import { PROPERTY_AMENITIES, PROPERTY_TYPE_ICONS, ROOM_TYPE_ICONS } from '@/lib/amenities'
+import { cn, formatPrice } from '@/lib/format'
 import type { MapLocation } from '@/components/map/MapPicker'
 import { UNIVERSITY_NAMES } from '@/types'
 import type { Property, PropertyCreate, PropertyImage, Room, UniversityName } from '@/types'
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
-function StepBar({ current, total, labels }: { current: number; total: number; labels: string[] }) {
+function StepBar({ current, labels }: { current: number; labels: string[] }) {
+  const { t } = useTranslation()
+  const pct = ((current + 1) / labels.length) * 100
   return (
-    <div className="flex items-center gap-0 mb-8">
-      {labels.map((label, i) => (
-        <div key={i} className="flex items-center flex-1 last:flex-none">
-          <div className="flex flex-col items-center">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
-                i < current
-                  ? 'bg-brand-600 border-brand-600 text-white'
-                  : i === current
-                  ? 'bg-white border-brand-600 text-brand-600'
-                  : 'bg-white border-gray-300 text-gray-400'
-              }`}
-            >
-              {i < current ? '✓' : i + 1}
-            </div>
-            <span
-              className={`text-xs mt-1 hidden sm:block ${
-                i === current ? 'text-brand-600 font-medium' : 'text-gray-400'
-              }`}
-            >
-              {label}
-            </span>
-          </div>
-          {i < total - 1 && (
-            <div className={`flex-1 h-0.5 mx-2 ${i < current ? 'bg-brand-600' : 'bg-gray-200'}`} />
-          )}
+    <div className="mb-6">
+      {/* Mobile: compact progress */}
+      <div className="sm:hidden">
+        <div className="mb-2 flex items-center justify-between text-sm">
+          <span className="font-bold text-slate-900">{labels[current]}</span>
+          <span className="font-semibold text-slate-400">
+            {t('addProperty.stepOf', { step: current + 1, total: labels.length })}
+          </span>
         </div>
-      ))}
+        <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+          <div className="h-full rounded-full bg-accent-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+
+      {/* Desktop: labelled steps */}
+      <ol className="hidden items-center sm:flex">
+        {labels.map((label, i) => (
+          <li key={label} className="flex flex-1 items-center last:flex-none">
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  'flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all',
+                  i < current && 'bg-brand-600 text-white',
+                  i === current && 'bg-accent-500 text-white ring-4 ring-accent-100',
+                  i > current && 'bg-white text-slate-400 ring-1 ring-line',
+                )}
+              >
+                {i < current ? <LuCheck className="size-4" /> : i + 1}
+              </span>
+              <span
+                className={cn(
+                  'hidden text-sm font-semibold whitespace-nowrap md:block',
+                  i === current ? 'text-slate-900' : i < current ? 'text-slate-600' : 'text-slate-400',
+                )}
+              >
+                {label}
+              </span>
+            </div>
+            {i < labels.length - 1 && (
+              <span className={cn('mx-3 h-0.5 flex-1 rounded-full', i < current ? 'bg-brand-600' : 'bg-slate-200')} />
+            )}
+          </li>
+        ))}
+      </ol>
     </div>
   )
 }
 
-// ─── Step 1: Property Info ─────────────────────────────────────────────────────
-interface InfoData {
-  title:              string
-  property_type:      Property['property_type'] | ''
-  description:        string
-  group_name:         string
-  nearby_university:  UniversityName | ''
-  gender_preference:  Property['gender_preference']
+function StepActions({ children }: { children: ReactNode }) {
+  return <div className="mt-8 flex items-center justify-between gap-3 border-t border-line pt-5">{children}</div>
 }
 
-function StepInfo({
-  data,
-  onChange,
-  onNext,
-}: {
-  data: InfoData
-  onChange: (d: InfoData) => void
-  onNext: () => void
-}) {
-  const { t, i18n } = useTranslation()
-  const fwd = i18n.dir() === 'rtl' ? '←' : '→'
-  const set = (field: keyof InfoData, value: string) => onChange({ ...data, [field]: value })
+const Fwd = () => <LuArrowRight className="size-4 rtl:rotate-180" />
+const Back = () => <LuArrowLeft className="size-4 rtl:rotate-180" />
+
+// ─── Step 1: Property Info ─────────────────────────────────────────────────────
+interface InfoData {
+  title: string
+  property_type: Property['property_type'] | ''
+  description: string
+  group_name: string
+  nearby_university: UniversityName | ''
+  gender_preference: Property['gender_preference']
+}
+
+function StepInfo({ data, onChange, onNext }: { data: InfoData; onChange: (d: InfoData) => void; onNext: () => void }) {
+  const { t } = useTranslation()
+  const [error, setError] = useState<string | null>(null)
+  const set = <K extends keyof InfoData>(field: K, value: InfoData[K]) => onChange({ ...data, [field]: value })
+
+  function submit(e: FormEvent) {
+    e.preventDefault()
+    if (!data.property_type) return setError(t('addProperty.info.typeRequired'))
+    setError(null)
+    onNext()
+  }
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onNext() }} className="space-y-5">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {t('addProperty.info.propertyTitle')} <span className="text-red-400">*</span>
-        </label>
-        <input
+    <form onSubmit={submit} className="space-y-6">
+      <Field label={t('addProperty.info.propertyTitle')} required hint={t('addProperty.info.titleHint')}>
+        <Input
           required
-          type="text"
+          maxLength={120}
           value={data.title}
           onChange={(e) => set('title', e.target.value)}
           placeholder={t('addProperty.info.titlePlaceholder')}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
-      </div>
+      </Field>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {t('addProperty.info.type')} <span className="text-red-400">*</span>
-          </label>
-          <select
-            required
-            value={data.property_type}
-            onChange={(e) => set('property_type', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          >
-            <option value="" disabled>{t('addProperty.info.selectType')}</option>
-            <option value="APARTMENT">{t('enums.propertyType.APARTMENT')}</option>
-            <option value="HOUSE">{t('enums.propertyType.HOUSE')}</option>
-            <option value="STUDIO">{t('enums.propertyType.STUDIO')}</option>
-          </select>
+      <Field label={t('addProperty.info.type')} required>
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          {(['APARTMENT', 'HOUSE', 'STUDIO'] as const).map((v) => {
+            const Icon = PROPERTY_TYPE_ICONS[v]
+            return (
+              <ChoiceCard
+                key={v}
+                selected={data.property_type === v}
+                onSelect={() => set('property_type', v)}
+                icon={<Icon />}
+                title={t(`enums.propertyType.${v}`)}
+              />
+            )
+          })}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {t('addProperty.info.genderPref')}
-          </label>
-          <select
-            value={data.gender_preference}
-            onChange={(e) => set('gender_preference', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          >
-            <option value="ANY">{t('enums.genderPref.ANY')}</option>
-            <option value="MALE">{t('enums.genderPref.MALE')}</option>
-            <option value="FEMALE">{t('enums.genderPref.FEMALE')}</option>
-          </select>
-        </div>
-      </div>
+      </Field>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {t('addProperty.info.description')}
-        </label>
-        <textarea
-          rows={3}
+      <Field label={t('addProperty.info.genderPref')}>
+        <div className="grid grid-cols-3 gap-2">
+          {(['ANY', 'MALE', 'FEMALE'] as const).map((v) => (
+            <ChoiceCard
+              key={v}
+              compact
+              selected={data.gender_preference === v}
+              onSelect={() => set('gender_preference', v)}
+              icon={<LuUsers />}
+              title={t(`enums.genderPref.${v}`)}
+            />
+          ))}
+        </div>
+      </Field>
+
+      <Field
+        label={t('addProperty.info.description')}
+        optional
+        hint={`${data.description.length}/1000 · ${t('addProperty.info.descriptionHint')}`}
+      >
+        <Textarea
+          rows={4}
+          maxLength={1000}
           value={data.description}
           onChange={(e) => set('description', e.target.value)}
           placeholder={t('addProperty.info.descriptionPlaceholder')}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
         />
+      </Field>
+
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label={t('addProperty.info.groupName')} hint={t('addProperty.info.groupNameHint')}>
+          <Input
+            value={data.group_name}
+            onChange={(e) => set('group_name', e.target.value)}
+            placeholder={t('addProperty.info.groupNamePlaceholder')}
+          />
+        </Field>
+        <Field label={t('addProperty.info.nearbyUniversity')}>
+          <Select value={data.nearby_university} onChange={(e) => set('nearby_university', e.target.value as UniversityName | '')}>
+            <option value="">{t('addProperty.info.noUniversity')}</option>
+            {UNIVERSITY_NAMES.map((u) => (
+              <option key={u} value={u}>
+                {t(`enums.university.${u}`)}
+              </option>
+            ))}
+          </Select>
+        </Field>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {t('addProperty.info.groupName')}
-        </label>
-        <input
-          type="text"
-          value={data.group_name}
-          onChange={(e) => set('group_name', e.target.value)}
-          placeholder={t('addProperty.info.groupNamePlaceholder')}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
-        <p className="text-xs text-gray-400 mt-1">{t('addProperty.info.groupNameHint')}</p>
-      </div>
+      {error && <Alert tone="danger">{error}</Alert>}
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {t('addProperty.info.nearbyUniversity')}
-        </label>
-        <select
-          value={data.nearby_university}
-          onChange={(e) => set('nearby_university', e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-        >
-          <option value="">{t('listings.filters.allUniversities')}</option>
-          {UNIVERSITY_NAMES.map((u) => (
-            <option key={u} value={u}>{t(`enums.university.${u}`)}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="flex justify-end pt-2">
-        <button
-          type="submit"
-          className="bg-brand-600 hover:bg-brand-700 text-white font-medium px-6 py-2.5 rounded-lg transition-colors text-sm"
-        >
-          {t('addProperty.next')} {fwd}
-        </button>
-      </div>
+      <StepActions>
+        <span />
+        <Button type="submit" variant="primary" rightIcon={<Fwd />}>
+          {t('addProperty.next')}
+        </Button>
+      </StepActions>
     </form>
   )
 }
@@ -181,16 +213,14 @@ function StepLocation({
   onBack: () => void
   onCreated: (property: Property) => void
 }) {
-  const { t, i18n } = useTranslation()
-  const fwd = i18n.dir() === 'rtl' ? '←' : '→'
-  const bk  = i18n.dir() === 'rtl' ? '→' : '←'
-  const [location, setLocation]       = useState<MapLocation | null>(null)
-  const [city, setCity]               = useState('')
-  const [buildingName, setBuildingName]     = useState('')
+  const { t } = useTranslation()
+  const [location, setLocation] = useState<MapLocation | null>(null)
+  const [city, setCity] = useState('')
+  const [buildingName, setBuildingName] = useState('')
   const [buildingNumber, setBuildingNumber] = useState('')
-  const [floorNumber, setFloorNumber]       = useState('')
-  const [error, setError]             = useState<string | null>(null)
-  const [loading, setLoading]         = useState(false)
+  const [floorNumber, setFloorNumber] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   function handleLocationChange(loc: MapLocation) {
     setLocation(loc)
@@ -198,33 +228,31 @@ function StepLocation({
   }
 
   async function handleCreate() {
-    if (!location) { setError(t('addProperty.location.selectLocation')); return }
-    if (!city.trim()) { setError(t('addProperty.location.enterCity')); return }
+    if (!location) return setError(t('addProperty.location.selectLocation'))
+    if (!city.trim()) return setError(t('addProperty.location.enterCity'))
     setError(null)
     setLoading(true)
 
     const payload: PropertyCreate = {
-      title:            infoData.title,
-      property_type:    infoData.property_type as Property['property_type'],
+      title: infoData.title,
+      property_type: infoData.property_type as Property['property_type'],
       gender_preference: infoData.gender_preference,
-      description:      infoData.description || undefined,
-      group_name:       infoData.group_name || undefined,
-      building_name:    buildingName || undefined,
-      building_number:  buildingNumber || undefined,
-      floor_number:     floorNumber
-        ? (isNaN(parseInt(floorNumber, 10)) ? undefined : parseInt(floorNumber, 10))
-        : undefined,
-      city:                city.trim(),
-      latitude:            location.lat,
-      longitude:           location.lng,
-      google_place_id:     location.placeId,
-      formatted_address:   location.address,
-      nearby_university:   infoData.nearby_university || undefined,
+      description: infoData.description || undefined,
+      group_name: infoData.group_name || undefined,
+      building_name: buildingName || undefined,
+      building_number: buildingNumber || undefined,
+      floor_number: floorNumber ? (isNaN(parseInt(floorNumber, 10)) ? undefined : parseInt(floorNumber, 10)) : undefined,
+      city: city.trim(),
+      latitude: location.lat,
+      longitude: location.lng,
+      google_place_id: location.placeId,
+      formatted_address: location.address,
+      nearby_university: infoData.nearby_university || undefined,
       // Amenities are set in the next step
-      has_gas:         false,
+      has_gas: false,
       has_electricity: false,
-      has_water:       false,
-      has_internet:    false,
+      has_water: false,
+      has_internet: false,
     }
 
     try {
@@ -239,102 +267,56 @@ function StepLocation({
   }
 
   return (
-    <div className="space-y-5">
-      {/* Map is the single source of truth for location */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t('addProperty.location.map')} <span className="text-red-400">*</span>
-        </label>
+    <div className="space-y-6">
+      <Field label={t('addProperty.location.map')} required>
         <MapPicker value={location} onChange={handleLocationChange} />
-      </div>
+      </Field>
 
-      {/* City + building details — appear only after a pin is set */}
       {location && (
-        <>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('addProperty.location.city')} <span className="text-red-400">*</span>
-            </label>
-            <input
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder={t('addProperty.location.cityPlaceholder')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-            <p className="text-xs text-gray-400 mt-1">{t('addProperty.location.cityDetected')}</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('addProperty.info.buildingName')}
-              </label>
-              <input
-                type="text"
+        <div className="space-y-5 animate-fade-up">
+          <Field label={t('addProperty.location.city')} required hint={t('addProperty.location.cityDetected')}>
+            <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder={t('addProperty.location.cityPlaceholder')} />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label={t('addProperty.info.buildingName')}>
+              <Input
                 value={buildingName}
                 onChange={(e) => setBuildingName(e.target.value)}
                 placeholder={t('addProperty.location.buildingNamePlaceholder')}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('addProperty.info.buildingNumber')}
-              </label>
-              <input
-                type="text"
-                value={buildingNumber}
-                onChange={(e) => setBuildingNumber(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('addProperty.info.floorNumber')}
-              </label>
-              <input
-                type="number"
-                value={floorNumber}
-                onChange={(e) => setFloorNumber(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
+            </Field>
+            <Field label={t('addProperty.info.buildingNumber')}>
+              <Input value={buildingNumber} onChange={(e) => setBuildingNumber(e.target.value)} />
+            </Field>
+            <Field label={t('addProperty.info.floorNumber')}>
+              <Input type="number" inputMode="numeric" value={floorNumber} onChange={(e) => setFloorNumber(e.target.value)} />
+            </Field>
           </div>
-        </>
+        </div>
       )}
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
-      )}
+      {error && <Alert tone="danger">{error}</Alert>}
 
-      <div className="flex justify-between pt-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-gray-500 hover:text-gray-700 text-sm px-4 py-2.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
-        >
-          {bk} {t('addProperty.back')}
-        </button>
-        <button
-          type="button"
-          onClick={handleCreate}
-          disabled={loading}
-          className="bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-medium px-6 py-2.5 rounded-lg transition-colors text-sm"
-        >
-          {loading ? t('addProperty.location.creating') : `${t('addProperty.location.create')} ${fwd}`}
-        </button>
-      </div>
+      <Alert tone="info">{t('addProperty.location.createNote')}</Alert>
+
+      <StepActions>
+        <Button variant="ghost" onClick={onBack} leftIcon={<Back />}>
+          {t('addProperty.back')}
+        </Button>
+        <Button variant="primary" onClick={handleCreate} loading={loading} rightIcon={<Fwd />}>
+          {loading ? t('addProperty.location.creating') : t('addProperty.location.create')}
+        </Button>
+      </StepActions>
     </div>
   )
 }
 
 // ─── Step 3: Amenities ─────────────────────────────────────────────────────────
 interface AmenitiesData {
-  has_gas:         boolean
+  has_gas: boolean
   has_electricity: boolean
-  has_water:       boolean
-  has_internet:    boolean
+  has_water: boolean
+  has_internet: boolean
 }
 
 function StepAmenities({
@@ -348,13 +330,9 @@ function StepAmenities({
   onChange: (d: AmenitiesData) => void
   onNext: (updated: Property) => void
 }) {
-  const { t, i18n } = useTranslation()
-  const fwd = i18n.dir() === 'rtl' ? '←' : '→'
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState<string | null>(null)
-
-  const set = (field: keyof AmenitiesData, val: boolean) =>
-    onChange({ ...data, [field]: val })
+  const [error, setError] = useState<string | null>(null)
 
   async function handleSave() {
     setError(null)
@@ -369,477 +347,170 @@ function StepAmenities({
     }
   }
 
-  const AMENITY_KEYS: { field: keyof AmenitiesData; label: string; icon: string }[] = [
-    { field: 'has_gas',         label: 'gas',         icon: '🔥' },
-    { field: 'has_electricity', label: 'electricity',  icon: '⚡' },
-    { field: 'has_water',       label: 'water',        icon: '💧' },
-    { field: 'has_internet',    label: 'internet',     icon: '🌐' },
-  ]
-
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-gray-500">{t('addProperty.amenities.subtitle')}</p>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {AMENITY_KEYS.map(({ field, label, icon }) => (
-          <label
+    <div>
+      <div className="grid grid-cols-2 gap-3">
+        {PROPERTY_AMENITIES.map(({ field, key, icon: Icon }) => (
+          <ChoiceCard
             key={field}
-            className={`flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-4 cursor-pointer transition-colors ${
-              data[field]
-                ? 'border-brand-500 bg-brand-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <input
-              type="checkbox"
-              checked={data[field]}
-              onChange={(e) => set(field, e.target.checked)}
-              className="sr-only"
-            />
-            <span className="text-2xl">{icon}</span>
-            <span className="text-sm font-medium text-gray-700">
-              {t(`property.amenities.${label}`)}
-            </span>
-          </label>
+            multi
+            selected={data[field]}
+            onSelect={() => onChange({ ...data, [field]: !data[field] })}
+            icon={<Icon />}
+            title={t(`property.amenities.${key}`)}
+            description={t(`addProperty.amenities.desc.${key}`)}
+          />
         ))}
       </div>
 
-      {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+      {error && <Alert tone="danger" className="mt-5">{error}</Alert>}
 
-      <div className="flex justify-end pt-2">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={loading}
-          className="bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-medium px-6 py-2.5 rounded-lg transition-colors text-sm"
-        >
-          {loading ? t('addProperty.amenities.saving') : `${t('addProperty.next')} ${fwd}`}
-        </button>
-      </div>
+      <StepActions>
+        <span />
+        <Button variant="primary" onClick={handleSave} loading={loading} rightIcon={<Fwd />}>
+          {loading ? t('addProperty.amenities.saving') : t('addProperty.next')}
+        </Button>
+      </StepActions>
     </div>
   )
 }
 
 // ─── Step 4: Images ────────────────────────────────────────────────────────────
-function StepImages({ property, onNext }: { property: Property; onNext: () => void }) {
-  const { t, i18n } = useTranslation()
-  const fwd = i18n.dir() === 'rtl' ? '←' : '→'
-  const [images, setImages] = useState<PropertyImage[]>([])
+function StepImages({
+  property,
+  images,
+  onImagesChange,
+  onNext,
+}: {
+  property: Property
+  images: PropertyImage[]
+  onImagesChange: (update: (prev: PropertyImage[]) => PropertyImage[]) => void
+  onNext: () => void
+}) {
+  const { t } = useTranslation()
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-gray-500">{t('addProperty.images.subtitle')}</p>
-
       <ImageUpload
         entityId={property.id}
         entityType="PROPERTY"
         images={images}
-        onUploaded={(img) => setImages((prev) => [...prev, img])}
-        onDeleted={(id) => setImages((prev) => prev.filter((i) => i.id !== id))}
+        onUploaded={(img) => onImagesChange((prev) => [...prev, img])}
+        onDeleted={(id) => onImagesChange((prev) => prev.filter((i) => i.id !== id))}
       />
 
-      <div className="flex justify-end pt-2">
-        <button
-          type="button"
-          onClick={onNext}
-          className="bg-brand-600 hover:bg-brand-700 text-white font-medium px-6 py-2.5 rounded-lg transition-colors text-sm"
-        >
-          {t('addProperty.images.continue')} {fwd}
-        </button>
+      <div className="rounded-2xl bg-slate-50 p-4">
+        <p className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">
+          <LuSparkles className="size-4 text-accent-500" />
+          {t('addProperty.images.tipsTitle')}
+        </p>
+        <ul className="space-y-1 text-sm text-slate-600">
+          <li>• {t('addProperty.images.tip1')}</li>
+          <li>• {t('addProperty.images.tip2')}</li>
+          <li>• {t('addProperty.images.tip3')}</li>
+        </ul>
       </div>
+
+      {images.length === 0 && <Alert tone="warning">{t('addProperty.images.requiredForApproval')}</Alert>}
+
+      <StepActions>
+        <span />
+        <Button variant="primary" onClick={onNext} rightIcon={<Fwd />}>
+          {t('addProperty.images.continue')}
+        </Button>
+      </StepActions>
     </div>
   )
 }
 
 // ─── Step 5: Rooms ─────────────────────────────────────────────────────────────
-interface RoomFormData {
-  room_type:            Room['room_type'] | ''
-  price_per_bed:        string
-  number_of_beds:       string
-  available_beds:       string
-  available_from:       string
-  description:          string
-  has_internal_bathroom: boolean
-  has_internal_balcony:  boolean
-  has_ac:               boolean
-  has_office:           boolean
-}
-
-const emptyRoomForm: RoomFormData = {
-  room_type:            '',
-  price_per_bed:        '',
-  number_of_beds:       '1',
-  available_beds:       '1',
-  available_from:       '',
-  description:          '',
-  has_internal_bathroom: false,
-  has_internal_balcony:  false,
-  has_ac:               false,
-  has_office:           false,
-}
-
-function roomToFormData(room: Room): RoomFormData {
-  return {
-    room_type:            room.room_type,
-    price_per_bed:        String(Math.round(parseFloat(room.price_per_bed))),
-    number_of_beds:       String(room.number_of_beds),
-    available_beds:       String(room.available_beds),
-    available_from:       room.available_from?.slice(0, 10) ?? '',
-    description:          room.description ?? '',
-    has_internal_bathroom: room.has_internal_bathroom,
-    has_internal_balcony:  room.has_internal_balcony,
-    has_ac:               room.has_ac,
-    has_office:           room.has_office,
-  }
-}
-
-function RoomFormInline({
-  propertyId,
-  initial,
-  initialImages = [],
-  onSaved,
-  onCancel,
-}: {
-  propertyId: string
-  initial?: Room
-  initialImages?: PropertyImage[]
-  onSaved: (room: Room, images: PropertyImage[]) => void
-  onCancel: () => void
-}) {
-  const { t } = useTranslation()
-  const [phase, setPhase]     = useState<'details' | 'images'>('details')
-  const [savedRoom, setSavedRoom] = useState<Room | null>(null)
-  const [images, setImages]   = useState<PropertyImage[]>(initialImages)
-  const [form, setForm]       = useState<RoomFormData>(initial ? roomToFormData(initial) : emptyRoomForm)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState<string | null>(null)
-
-  const set = (field: keyof RoomFormData, value: string | boolean) =>
-    setForm((f) => ({ ...f, [field]: value }))
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    const beds  = parseInt(form.number_of_beds, 10)
-    const avail = parseInt(form.available_beds, 10)
-    if (!form.price_per_bed || isNaN(parseFloat(form.price_per_bed)) || parseFloat(form.price_per_bed) <= 0) {
-      setError(t('addProperty.rooms.form.invalidPrice')); return
-    }
-    if (isNaN(beds) || beds < 1) {
-      setError(t('addProperty.rooms.form.invalidBeds')); return
-    }
-    if (isNaN(avail) || avail < 0 || avail > beds) {
-      setError(t('addProperty.rooms.form.bedsError')); return
-    }
-    setLoading(true)
-
-    const roomFields = {
-      room_type:            form.room_type as Room['room_type'],
-      price_per_bed:        parseFloat(form.price_per_bed),
-      number_of_beds:       beds,
-      available_beds:       avail,
-      available_from:       form.available_from || undefined,
-      description:          form.description || undefined,
-      has_internal_bathroom: form.has_internal_bathroom,
-      has_internal_balcony:  form.has_internal_balcony,
-      has_ac:               form.has_ac,
-      has_office:           form.has_office,
-    }
-
-    try {
-      let res
-      if (initial) {
-        res = await landlordService.updateRoom(initial.id, roomFields)
-      } else {
-        res = await landlordService.createRoom({ property_id: propertyId, ...roomFields })
-      }
-      setSavedRoom(res.data)
-      setPhase('images')
-    } catch {
-      setError(t('addProperty.rooms.form.error'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // ── Phase 2: image upload ──────────────────────────────────────────────────
-  if (phase === 'images' && savedRoom) {
-    return (
-      <div className="border border-brand-200 rounded-xl p-4 bg-brand-50 space-y-4">
-        {/* Success banner */}
-        <div className="flex items-center gap-2 pb-3 border-b border-brand-100">
-          <span className="w-5 h-5 rounded-full bg-green-500 text-white text-[10px] flex items-center justify-center font-bold shrink-0">✓</span>
-          <p className="text-sm font-semibold text-gray-800">
-            {initial ? t('addProperty.rooms.form.roomUpdated') : t('addProperty.rooms.form.roomCreated')}
-          </p>
-        </div>
-
-        {/* Image upload */}
-        <div>
-          <p className="text-xs font-medium text-gray-700 mb-0.5">
-            {t('addProperty.rooms.form.addPhotos')}
-            <span className="text-gray-400 font-normal ms-1">— {t('addProperty.rooms.form.photosOptional')}</span>
-          </p>
-          <p className="text-xs text-gray-400 mb-3">{t('addProperty.rooms.form.photosHint')}</p>
-          <ImageUpload
-            entityId={savedRoom.id}
-            entityType="ROOM"
-            images={images}
-            maxImages={5}
-            onUploaded={(img) => setImages((p) => [...p, img])}
-            onDeleted={(id) => setImages((p) => p.filter((i) => i.id !== id))}
-          />
-        </div>
-
-        <div className="flex justify-end pt-1">
-          <button
-            type="button"
-            onClick={() => onSaved(savedRoom, images)}
-            className="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors"
-          >
-            {images.length > 0
-              ? `${t('addProperty.rooms.form.done')} (${images.length} ${t('addProperty.rooms.form.photos')})`
-              : t('addProperty.rooms.form.skipPhotos')}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Phase 1: details form ──────────────────────────────────────────────────
-  return (
-    <form onSubmit={handleSave} className="border border-brand-200 rounded-xl p-4 bg-brand-50 space-y-4">
-      <h4 className="text-sm font-semibold text-gray-800">
-        {initial ? t('addProperty.rooms.form.editTitle') : t('addProperty.rooms.form.title')}
-      </h4>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            {t('addProperty.rooms.form.type')} <span className="text-red-400">*</span>
-          </label>
-          <select
-            required
-            value={form.room_type}
-            onChange={(e) => set('room_type', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          >
-            <option value="" disabled>{t('addProperty.rooms.form.selectType')}</option>
-            <option value="SINGLE">{t('enums.roomType.SINGLE')}</option>
-            <option value="SHARED">{t('enums.roomType.SHARED')}</option>
-            <option value="STUDIO">{t('enums.roomType.STUDIO')}</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            {t('addProperty.rooms.form.price')} <span className="text-red-400">*</span>
-          </label>
-          <input
-            required
-            type="number"
-            min={1}
-            value={form.price_per_bed}
-            onChange={(e) => set('price_per_bed', e.target.value)}
-            placeholder={t('addProperty.rooms.form.pricePlaceholder')}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            {t('addProperty.rooms.form.beds')}
-          </label>
-          <input
-            type="number"
-            min={1}
-            value={form.number_of_beds}
-            onChange={(e) => set('number_of_beds', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            {t('addProperty.rooms.form.availableBeds')}
-          </label>
-          <input
-            type="number"
-            min={0}
-            max={parseInt(form.number_of_beds) || 1}
-            value={form.available_beds}
-            onChange={(e) => set('available_beds', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            {t('addProperty.rooms.form.availableFrom')}
-          </label>
-          <input
-            type="date"
-            value={form.available_from}
-            onChange={(e) => set('available_from', e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          {t('addProperty.rooms.form.description')}
-        </label>
-        <input
-          type="text"
-          value={form.description}
-          onChange={(e) => set('description', e.target.value)}
-          placeholder={t('addProperty.rooms.form.descriptionPlaceholder')}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
-        />
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-2">
-          {t('addProperty.rooms.form.amenities')}
-        </label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {(['has_internal_bathroom', 'has_internal_balcony', 'has_ac', 'has_office'] as const).map(
-            (key) => {
-              const labelKey = key.replace('has_internal_', '').replace('has_', '')
-              return (
-                <label
-                  key={key}
-                  className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 cursor-pointer transition-colors text-xs ${
-                    form[key]
-                      ? 'border-brand-500 bg-white'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={form[key]}
-                    onChange={(e) => set(key, e.target.checked)}
-                    className="sr-only"
-                  />
-                  <span className="font-medium text-gray-700">
-                    {t(`property.amenities.${labelKey}`)}
-                  </span>
-                </label>
-              )
-            }
-          )}
-        </div>
-      </div>
-
-      {error && <p className="text-xs text-red-600">{error}</p>}
-
-      <div className="flex gap-2 justify-end">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 rounded-lg border border-gray-200 transition-colors"
-        >
-          {t('addProperty.rooms.form.cancel')}
-        </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="text-sm bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          {loading ? t('addProperty.rooms.form.saving') : t('addProperty.rooms.form.save')}
-        </button>
-      </div>
-    </form>
-  )
-}
-
 // activeForm: null = nothing open, '__new__' = add-new form, room.id = edit that room
 type RoomFormMode = null | '__new__' | string
 
 function StepRooms({
   property,
+  rooms,
   onRoomsChange,
   onFinish,
 }: {
   property: Property
+  rooms: Room[]
   onRoomsChange: (rooms: Room[]) => void
   onFinish: () => void
 }) {
-  const { t, i18n } = useTranslation()
-  const fwd = i18n.dir() === 'rtl' ? '←' : '→'
-  const [rooms, setRooms]           = useState<Room[]>([])
+  const { t } = useTranslation()
   const [roomImages, setRoomImages] = useState<Record<string, PropertyImage[]>>({})
-  const [activeForm, setActiveForm] = useState<RoomFormMode>(null)
-
-  function updateList(next: Room[]) {
-    setRooms(next)
-    onRoomsChange(next)
-  }
+  const [activeForm, setActiveForm] = useState<RoomFormMode>(rooms.length === 0 ? '__new__' : null)
 
   function handleSaved(room: Room, images: PropertyImage[]) {
     setRoomImages((prev) => ({ ...prev, [room.id]: images }))
-    if (activeForm === '__new__') {
-      updateList([...rooms, room])
-    } else {
-      updateList(rooms.map((r) => (r.id === room.id ? room : r)))
-    }
+    onRoomsChange(activeForm === '__new__' ? [...rooms, room] : rooms.map((r) => (r.id === room.id ? room : r)))
     setActiveForm(null)
   }
 
   return (
-    <div className="space-y-5">
-      <p className="text-sm text-gray-500">{t('addProperty.rooms.subtitle')}</p>
-
-      {rooms.length > 0 && (
-        <div className="space-y-3">
-          {rooms.map((room) =>
-            activeForm === room.id ? (
-              <RoomFormInline
-                key={room.id}
-                propertyId={property.id}
-                initial={room}
-                initialImages={roomImages[room.id] || []}
-                onSaved={handleSaved}
-                onCancel={() => setActiveForm(null)}
-              />
+    <div className="space-y-4">
+      {rooms.map((room) => {
+        if (activeForm === room.id) {
+          return (
+            <RoomEditor
+              key={room.id}
+              propertyId={property.id}
+              initial={room}
+              initialImages={roomImages[room.id] || []}
+              onSaved={handleSaved}
+              onCancel={() => setActiveForm(null)}
+            />
+          )
+        }
+        const Icon = ROOM_TYPE_ICONS[room.room_type]
+        const imgs = roomImages[room.id] ?? []
+        return (
+          <div key={room.id} className="flex items-center gap-4 rounded-2xl border border-line bg-white p-3 shadow-soft">
+            {imgs[0] ? (
+              <img src={imgs[0].image_url} alt="" className="size-16 shrink-0 rounded-xl object-cover" />
             ) : (
-              <div key={room.id} className="border border-gray-200 rounded-xl p-4 bg-white">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                      {t(`enums.roomType.${room.room_type}`)}
-                    </span>
-                    <span className="text-sm font-semibold text-brand-600">
-                      ₪{Math.round(parseFloat(room.price_per_bed)).toLocaleString()}
-                    </span>
-                    <span className="text-xs text-gray-400">{t('property.perBed')}</span>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs text-gray-400">
-                      {room.number_of_beds} {t('property.beds')}
-                    </span>
-                    {(roomImages[room.id]?.length ?? 0) > 0 ? (
-                      <span className="text-xs text-gray-400">
-                        📷 {roomImages[room.id].length}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-amber-500">{t('addProperty.rooms.noPhotos')}</span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setActiveForm(room.id)}
-                      disabled={activeForm !== null}
-                      className="text-xs text-brand-600 hover:text-brand-700 font-medium disabled:opacity-40 transition-colors"
-                    >
-                      ✏️ {t('addProperty.rooms.editRoom')}
-                    </button>
-                  </div>
-                </div>
+              <span className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                <Icon className="size-6" />
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="font-bold text-slate-900">
+                {t('property.roomOfType', { type: t(`enums.roomType.${room.room_type}`) })}
+              </p>
+              <p className="text-sm text-slate-500">
+                <span className="font-bold text-slate-800">{formatPrice(room.price_per_bed)}</span> {t('property.perBed')}
+              </p>
+              <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-slate-500">
+                <span className="inline-flex items-center gap-1">
+                  <LuBedDouble className="size-3.5" />
+                  {room.number_of_beds} {t('property.beds')}
+                </span>
+                {imgs.length > 0 ? (
+                  <span className="inline-flex items-center gap-1">
+                    <LuImages className="size-3.5" />
+                    {imgs.length}
+                  </span>
+                ) : (
+                  <span className="font-semibold text-amber-600">{t('addProperty.rooms.noPhotos')}</span>
+                )}
               </div>
-            )
-          )}
-        </div>
-      )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setActiveForm(room.id)}
+              disabled={activeForm !== null}
+              leftIcon={<LuPencil className="size-3.5" />}
+            >
+              {t('addProperty.rooms.editRoom')}
+            </Button>
+          </div>
+        )
+      })}
 
       {activeForm === '__new__' ? (
-        <RoomFormInline
+        <RoomEditor
           propertyId={property.id}
           onSaved={handleSaved}
           onCancel={() => setActiveForm(null)}
@@ -849,22 +520,25 @@ function StepRooms({
           type="button"
           onClick={() => setActiveForm('__new__')}
           disabled={activeForm !== null}
-          className="w-full border-2 border-dashed border-gray-300 hover:border-brand-400 text-gray-500 hover:text-brand-600 disabled:opacity-40 rounded-xl py-4 text-sm font-medium transition-colors"
+          className="flex h-16 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 text-sm font-bold text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50/50 hover:text-brand-700 disabled:opacity-40"
         >
-          + {t('addProperty.rooms.addRoom')}
+          <LuPlus className="size-5" />
+          {rooms.length === 0 ? t('addProperty.rooms.addFirstRoom') : t('addProperty.rooms.addRoom')}
         </button>
       )}
 
-      <div className="flex justify-end pt-2">
-        <button
-          type="button"
-          onClick={onFinish}
-          disabled={activeForm !== null}
-          className="bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-medium px-6 py-2.5 rounded-lg transition-colors text-sm"
-        >
-          {t('addProperty.next')} {fwd}
-        </button>
-      </div>
+      {rooms.length === 0 && activeForm === null && (
+        <Alert tone="warning">{t('addProperty.rooms.requiredForApproval')}</Alert>
+      )}
+
+      <StepActions>
+        <span className="text-sm font-semibold text-slate-500">
+          {t('addProperty.rooms.countAdded', { count: rooms.length })}
+        </span>
+        <Button variant="primary" onClick={onFinish} disabled={activeForm !== null} rightIcon={<Fwd />}>
+          {t('addProperty.next')}
+        </Button>
+      </StepActions>
     </div>
   )
 }
@@ -873,130 +547,145 @@ function StepRooms({
 function StepReview({
   property,
   amenities,
+  images,
   rooms,
   onFinish,
 }: {
   property: Property
   amenities: AmenitiesData
+  images: PropertyImage[]
   rooms: Room[]
   onFinish: () => void
 }) {
   const { t } = useTranslation()
+  const cover = images.find((i) => i.is_primary)?.image_url ?? images[0]?.image_url
+  const activeAmenities = PROPERTY_AMENITIES.filter((a) => amenities[a.field])
 
-  const activeAmenities = (
-    ['has_gas', 'has_electricity', 'has_water', 'has_internet'] as const
-  ).filter((k) => amenities[k])
-
-  const labelMap: Record<keyof AmenitiesData, string> = {
-    has_gas:         'gas',
-    has_electricity: 'electricity',
-    has_water:       'water',
-    has_internet:    'internet',
-  }
+  const checklist = [
+    { ok: true, label: t('addProperty.review.check.details') },
+    { ok: images.length > 0, label: t('addProperty.review.check.photos', { count: images.length }) },
+    { ok: rooms.length > 0, label: t('addProperty.review.check.rooms', { count: rooms.length }) },
+  ]
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-gray-500">{t('addProperty.review.subtitle')}</p>
-
-      {/* Property summary */}
-      <div className="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50">
-        <div className="flex items-start justify-between gap-3">
+      <div className="overflow-hidden rounded-3xl border border-line">
+        <div className="relative aspect-[21/9] bg-slate-100">
+          {cover ? (
+            <img src={cover} alt="" className="size-full object-cover" />
+          ) : (
+            <div className="flex size-full items-center justify-center text-slate-300">
+              <LuImages className="size-10" />
+            </div>
+          )}
+          <Badge tone="warning" dot className="absolute top-3 start-3 shadow-sm">
+            {t('enums.propertyStatus.PENDING')}
+          </Badge>
+        </div>
+        <div className="space-y-4 p-5">
           <div>
-            <p className="font-semibold text-gray-900">{property.title}</p>
-            <p className="text-xs text-gray-500">
-              {t(`enums.propertyType.${property.property_type}`)} · {property.city}
+            <h3 className="text-lg font-extrabold text-slate-900">{property.title}</h3>
+            <p className="text-sm text-slate-500">
+              {t(`enums.propertyType.${property.property_type}`)} · {property.city} ·{' '}
+              {t(`enums.genderPref.${property.gender_preference}`)}
             </p>
           </div>
-          <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200 shrink-0">
-            {t('enums.propertyStatus.PENDING')}
-          </span>
-        </div>
 
-        {/* Amenities */}
-        <div>
-          <p className="text-xs font-medium text-gray-500 mb-1.5">{t('addProperty.review.amenitiesIncluded')}</p>
-          {activeAmenities.length === 0 ? (
-            <p className="text-xs text-gray-400">{t('addProperty.review.none')}</p>
-          ) : (
-            <div className="flex flex-wrap gap-1">
-              {activeAmenities.map((k) => (
-                <span key={k} className="text-xs bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full">
-                  {t(`property.amenities.${labelMap[k]}`)}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Rooms */}
-        <div>
-          <p className="text-xs font-medium text-gray-500 mb-1.5">{t('addProperty.review.roomsAdded')}</p>
-          {rooms.length === 0 ? (
-            <p className="text-xs text-gray-400">{t('addProperty.review.noRooms')}</p>
-          ) : (
-            <div className="space-y-1">
-              {rooms.map((room) => (
-                <div key={room.id} className="flex items-center gap-2 text-xs text-gray-600">
-                  <span>🛏</span>
-                  <span>{t(`enums.roomType.${room.room_type}`)}</span>
-                  <span className="text-gray-400">·</span>
-                  <span className="font-medium text-brand-600">
-                    ₪{Math.round(parseFloat(room.price_per_bed)).toLocaleString()}
+          <div>
+            <p className="mb-2 text-xs font-bold text-slate-500">{t('addProperty.review.amenitiesIncluded')}</p>
+            {activeAmenities.length === 0 ? (
+              <p className="text-sm text-slate-400">{t('addProperty.review.none')}</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {activeAmenities.map(({ key, icon: Icon }) => (
+                  <span key={key} className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
+                    <Icon className="size-3.5" />
+                    {t(`property.amenities.${key}`)}
                   </span>
-                  <span className="text-gray-400">{t('property.perBed')}</span>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-bold text-slate-500">{t('addProperty.review.roomsAdded')}</p>
+            {rooms.length === 0 ? (
+              <p className="text-sm text-slate-400">{t('addProperty.review.noRooms')}</p>
+            ) : (
+              <div className="divide-y divide-line rounded-2xl border border-line">
+                {rooms.map((room) => {
+                  const Icon = ROOM_TYPE_ICONS[room.room_type]
+                  return (
+                    <div key={room.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                      <Icon className="size-4 text-slate-400" />
+                      <span className="flex-1 font-semibold text-slate-700">{t(`enums.roomType.${room.room_type}`)}</span>
+                      <span className="text-slate-500">
+                        {room.available_beds}/{room.number_of_beds} <LuBedDouble className="inline size-3.5" />
+                      </span>
+                      <span className="font-bold text-slate-900">{formatPrice(room.price_per_bed)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-700">
-        ℹ️ {t('addProperty.review.pendingNote')}
-      </div>
+      <ul className="space-y-2">
+        {checklist.map((c) => (
+          <li key={c.label} className="flex items-center gap-2.5 text-sm">
+            <span
+              className={cn(
+                'flex size-5 items-center justify-center rounded-full',
+                c.ok ? 'bg-emerald-500 text-white' : 'bg-amber-100 text-amber-600',
+              )}
+            >
+              {c.ok ? <LuCheck className="size-3" strokeWidth={3} /> : '!'}
+            </span>
+            <span className={c.ok ? 'text-slate-700' : 'font-semibold text-amber-700'}>{c.label}</span>
+          </li>
+        ))}
+      </ul>
 
-      <div className="flex justify-end pt-2">
-        <button
-          type="button"
-          onClick={onFinish}
-          className="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors text-sm"
-        >
-          {t('addProperty.review.finish')} ✓
-        </button>
-      </div>
+      <Alert tone="info">{t('addProperty.review.pendingNote')}</Alert>
+
+      <StepActions>
+        <span />
+        <Button variant="accent" size="lg" onClick={onFinish} leftIcon={<LuSend className="size-4 rtl:-scale-x-100" />}>
+          {t('addProperty.review.finish')}
+        </Button>
+      </StepActions>
     </div>
   )
 }
 
 // ─── Success screen ────────────────────────────────────────────────────────────
-function SuccessScreen({ property }: { property: Property }) {
+function SuccessScreen({ property, onAddAnother }: { property: Property; onAddAnother: () => void }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   return (
-    <div className="text-center py-8 space-y-4">
-      <div className="text-5xl">🎉</div>
-      <h2 className="text-xl font-bold text-gray-900">{t('addProperty.success.title')}</h2>
-      <p className="text-gray-500 text-sm max-w-sm mx-auto">{t('addProperty.success.subtitle')}</p>
-      <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
-        <Link
-          to={`/listings/${property.id}`}
-          className="border border-brand-600 text-brand-600 hover:bg-brand-50 font-medium px-5 py-2.5 rounded-lg text-sm transition-colors"
-        >
-          {t('addProperty.success.viewProperty')}
-        </Link>
-        <button
-          onClick={() => navigate('/landlord/add-property')}
-          className="border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-5 py-2.5 rounded-lg text-sm transition-colors"
-        >
-          {t('addProperty.success.addAnother')}
-        </button>
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="bg-brand-600 hover:bg-brand-700 text-white font-medium px-5 py-2.5 rounded-lg text-sm transition-colors"
-        >
-          {t('addProperty.success.goToDashboard')}
-        </button>
+    <div className="py-8 text-center">
+      <div className="relative mx-auto flex size-20 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 animate-scale-in">
+        <span className="absolute inset-0 animate-ping rounded-full bg-emerald-200 opacity-40" />
+        <LuCheck className="relative size-10" strokeWidth={3} />
       </div>
+      <h2 className="mt-6 text-2xl font-extrabold text-slate-900">{t('addProperty.success.title')}</h2>
+      <p className="mx-auto mt-2 max-w-md text-slate-500">{t('addProperty.success.subtitle')}</p>
+      <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+        <LinkButton to="/dashboard" variant="primary" leftIcon={<LuLayoutDashboard className="size-4" />}>
+          {t('addProperty.success.goToDashboard')}
+        </LinkButton>
+        <LinkButton to={`/landlord/properties/${property.id}/rooms`} variant="outline" leftIcon={<LuDoorOpen className="size-4" />}>
+          {t('addProperty.success.manageRooms')}
+        </LinkButton>
+        <Button variant="ghost" onClick={onAddAnother} leftIcon={<LuPlus className="size-4" />}>
+          {t('addProperty.success.addAnother')}
+        </Button>
+      </div>
+      <p className="mt-6 inline-flex items-center gap-1.5 text-xs text-slate-400">
+        <LuEye className="size-3.5" />
+        {t('addProperty.success.visibilityNote')}
+      </p>
     </div>
   )
 }
@@ -1006,75 +695,80 @@ function SuccessScreen({ property }: { property: Property }) {
 const TOTAL_STEPS = 6
 
 const defaultInfo: InfoData = {
-  title:             '',
-  property_type:     '',
-  description:       '',
-  group_name:        '',
+  title: '',
+  property_type: '',
+  description: '',
+  group_name: '',
   nearby_university: '',
   gender_preference: 'ANY',
 }
 
 const defaultAmenities: AmenitiesData = {
-  has_gas:         false,
+  has_gas: false,
   has_electricity: false,
-  has_water:       false,
-  has_internet:    false,
+  has_water: false,
+  has_internet: false,
 }
 
 export default function AddPropertyPage() {
-  const { t, i18n } = useTranslation()
-  const bk = i18n.dir() === 'rtl' ? '→' : '←'
-  const [step, setStep]                   = useState(0)
-  const [infoData, setInfoData]           = useState<InfoData>(defaultInfo)
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const [step, setStep] = useState(0)
+  const [infoData, setInfoData] = useState<InfoData>(defaultInfo)
   const [amenitiesData, setAmenitiesData] = useState<AmenitiesData>(defaultAmenities)
   const [createdProperty, setCreatedProperty] = useState<Property | null>(null)
-  const [addedRooms, setAddedRooms]       = useState<Room[]>([])
+  const [propertyImages, setPropertyImages] = useState<PropertyImage[]>([])
+  const [addedRooms, setAddedRooms] = useState<Room[]>([])
 
-  const stepLabels = [
-    t('addProperty.steps.info'),
-    t('addProperty.steps.location'),
-    t('addProperty.steps.amenities'),
-    t('addProperty.steps.images'),
-    t('addProperty.steps.rooms'),
-    t('addProperty.steps.review'),
-  ]
+  const stepKeys = ['info', 'location', 'amenities', 'images', 'rooms', 'review'] as const
+  const stepLabels = stepKeys.map((k) => t(`addProperty.steps.${k}`))
 
-  const stepSubtitleKeys = [
-    'info', 'location', 'amenities', 'images', 'rooms', 'review',
-  ]
+  const goTo = (s: number) => {
+    setStep(s)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function reset() {
+    setStep(0)
+    setInfoData(defaultInfo)
+    setAmenitiesData(defaultAmenities)
+    setCreatedProperty(null)
+    setPropertyImages([])
+    setAddedRooms([])
+    navigate('/landlord/add-property', { replace: true })
+  }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <div className="mb-6">
-        <Link to="/dashboard" className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 mb-4">
-          {bk} {t('nav.dashboard')}
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900">{t('addProperty.title')}</h1>
-      </div>
+    <div className="mx-auto max-w-3xl px-4 py-8 animate-fade-in sm:px-6 lg:py-12">
+      <Link
+        to="/dashboard"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition-colors hover:text-brand-600"
+      >
+        <LuArrowLeft className="size-4 rtl:rotate-180" />
+        {t('nav.dashboard')}
+      </Link>
+      <h1 className="mb-6 text-2xl font-extrabold text-slate-900 sm:text-3xl">{t('addProperty.title')}</h1>
 
-      {step < TOTAL_STEPS && (
-        <StepBar current={step} total={TOTAL_STEPS} labels={stepLabels} />
-      )}
+      {step < TOTAL_STEPS && <StepBar current={step} labels={stepLabels} />}
 
-      <div className="bg-white border border-gray-200 rounded-2xl p-6">
+      <div className="rounded-3xl border border-line bg-white p-5 shadow-soft sm:p-8">
         {step < TOTAL_STEPS && (
-          <div className="mb-5">
-            <h2 className="text-base font-semibold text-gray-800">{stepLabels[step]}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {t(`addProperty.${stepSubtitleKeys[step]}.subtitle`)}
-            </p>
+          <div className="mb-6">
+            <h2 className="text-xl font-extrabold text-slate-900">{stepLabels[step]}</h2>
+            <p className="mt-1 text-sm text-slate-500">{t(`addProperty.${stepKeys[step]}.subtitle`)}</p>
           </div>
         )}
 
-        {step === 0 && (
-          <StepInfo data={infoData} onChange={setInfoData} onNext={() => setStep(1)} />
-        )}
+        {step === 0 && <StepInfo data={infoData} onChange={setInfoData} onNext={() => goTo(1)} />}
 
         {step === 1 && (
           <StepLocation
             infoData={infoData}
-            onBack={() => setStep(0)}
-            onCreated={(p) => { setCreatedProperty(p); setStep(2) }}
+            onBack={() => goTo(0)}
+            onCreated={(p) => {
+              setCreatedProperty(p)
+              goTo(2)
+            }}
           />
         )}
 
@@ -1083,34 +777,37 @@ export default function AddPropertyPage() {
             property={createdProperty}
             data={amenitiesData}
             onChange={setAmenitiesData}
-            onNext={(updated) => { setCreatedProperty(updated); setStep(3) }}
+            onNext={(updated) => {
+              setCreatedProperty(updated)
+              goTo(3)
+            }}
           />
         )}
 
         {step === 3 && createdProperty && (
-          <StepImages property={createdProperty} onNext={() => setStep(4)} />
+          <StepImages
+            property={createdProperty}
+            images={propertyImages}
+            onImagesChange={setPropertyImages}
+            onNext={() => goTo(4)}
+          />
         )}
 
         {step === 4 && createdProperty && (
-          <StepRooms
-            property={createdProperty}
-            onRoomsChange={setAddedRooms}
-            onFinish={() => setStep(5)}
-          />
+          <StepRooms property={createdProperty} rooms={addedRooms} onRoomsChange={setAddedRooms} onFinish={() => goTo(5)} />
         )}
 
         {step === 5 && createdProperty && (
           <StepReview
             property={createdProperty}
             amenities={amenitiesData}
+            images={propertyImages}
             rooms={addedRooms}
-            onFinish={() => setStep(6)}
+            onFinish={() => goTo(6)}
           />
         )}
 
-        {step === 6 && createdProperty && (
-          <SuccessScreen property={createdProperty} />
-        )}
+        {step === 6 && createdProperty && <SuccessScreen property={createdProperty} onAddAnother={reset} />}
       </div>
     </div>
   )
